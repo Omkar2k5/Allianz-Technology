@@ -1,0 +1,95 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: ecocompute-postgres
+    environment:
+      POSTGRES_DB: ecocompute
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+      - ./backend/database/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d ecocompute"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ecocompute-network
+
+  # Analytics & Control API
+  analytics-api:
+    build:
+      context: ./backend/analytics-api
+      dockerfile: Dockerfile
+    container_name: ecocompute-analytics-api
+    environment:
+      DATABASE_URL: postgresql://admin:${DB_PASSWORD:-changeme}@postgres:5432/ecocompute
+      JWT_SECRET: ${JWT_SECRET:-your-secret-key}
+      JWT_ALGORITHM: HS256
+      API_PORT: 8000
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      DEBUG: ${DEBUG:-false}
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - ecocompute-network
+    restart: unless-stopped
+
+  # GenAI Sustainability Proxy
+  genai-proxy:
+    build:
+      context: ./backend/genai-proxy
+      dockerfile: Dockerfile
+    container_name: ecocompute-genai-proxy
+    environment:
+      DATABASE_URL: postgresql://admin:${DB_PASSWORD:-changeme}@postgres:5432/ecocompute
+      ANALYTICS_API_URL: http://analytics-api:8000
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      AZURE_OPENAI_KEY: ${AZURE_OPENAI_KEY:-}
+      GOOGLE_AI_KEY: ${GOOGLE_AI_KEY:-}
+      PROXY_PORT: 8001
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      DEBUG: ${DEBUG:-false}
+      ENABLE_POLICY_ENFORCEMENT: ${ENABLE_POLICY_ENFORCEMENT:-true}
+    ports:
+      - "8001:8001"
+    depends_on:
+      - postgres
+      - analytics-api
+    networks:
+      - ecocompute-network
+    restart: unless-stopped
+
+  # Frontend Dashboard
+  frontend:
+    build:
+      context: ./Frontend-Dashboard
+      dockerfile: Dockerfile
+    container_name: ecocompute-frontend
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - analytics-api
+    networks:
+      - ecocompute-network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  ecocompute-network:
+    driver: bridge
