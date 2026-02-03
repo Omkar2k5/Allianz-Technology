@@ -22,9 +22,14 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "postgresql://admin:password@localhost:5432/ecocompute"
     
     # External Services
-    ANALYTICS_API_URL: str = "http://analytics-api:8000"
+    ANALYTICS_API_URL: str = "http://localhost:8000"
     
     # GenAI Provider API Keys
+    # OpenRouter (for testing)
+    OPENROUTER_API_KEY: str = ""
+    OPENROUTER_BASE_URL: str = "https://openrouter.ai/api/v1"
+    
+    # OpenAI (optional)
     OPENAI_API_KEY: str = ""
     AZURE_OPENAI_KEY: str = ""
     AZURE_OPENAI_ENDPOINT: str = ""

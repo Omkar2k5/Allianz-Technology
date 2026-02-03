@@ -120,13 +120,32 @@ async def proxy_openai_chat(
                 body["model"] = model
                 logger.info(f"Model downgraded to {model} due to policy")
         
-        # Forward request to OpenAI
+        # Forward request to OpenRouter or OpenAI
+        # Determine which provider to use
+        if settings.OPENROUTER_API_KEY:
+            # Use OpenRouter
+            api_url = f"{settings.OPENROUTER_BASE_URL}/chat/completions"
+            api_key = settings.OPENROUTER_API_KEY
+            logger.info(f"Forwarding to OpenRouter: {model}")
+        elif settings.OPENAI_API_KEY:
+            # Use OpenAI
+            api_url = "https://api.openai.com/v1/chat/completions"
+            api_key = settings.OPENAI_API_KEY
+            logger.info(f"Forwarding to OpenAI: {model}")
+        else:
+            raise HTTPException(
+                status_code=500,
+                detail="No API key configured. Please set OPENROUTER_API_KEY or OPENAI_API_KEY"
+            )
+        
         async with httpx.AsyncClient() as client:
             response = await client.post(
-                "https://api.openai.com/v1/chat/completions",
+                api_url,
                 headers={
-                    "Authorization": f"Bearer {settings.OPENAI_API_KEY}",
-                    "Content-Type": "application/json"
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json",
+                    "HTTP-Referer": "http://localhost:3000",  # Required for OpenRouter
+                    "X-Title": "Eco-Compute"  # Optional for OpenRouter
                 },
                 json=body,
                 timeout=60.0
