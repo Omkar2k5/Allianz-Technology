@@ -28,7 +28,7 @@ impl Default for Config {
         Self {
             proxy_addr: "127.0.0.1:8080".to_string(),
             proxy_port: 8080,
-            api_url: "http://localhost:8000".to_string(),
+            api_url: "http://127.0.0.1:8000".to_string(),
             agent_id: None,
             api_key: None,
             db_path: "ecocompute.db".to_string(),

@@ -13,6 +13,7 @@ import {
   Settings,
   Leaf,
   ChevronLeft,
+  BookOpen,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -29,6 +30,7 @@ const navItems = [
   { href: '/emissions', label: 'Carbon Emissions', icon: Wind },
   { href: '/models', label: 'Model Efficiency', icon: Cpu },
   { href: '/recommendations', label: 'Recommendations', icon: Lightbulb },
+  { href: '/rfe', label: 'Research for Estimation', icon: BookOpen },
   { href: '/reports', label: 'Reports & ESG', icon: FileText },
   { href: '/settings', label: 'Settings & Integrations', icon: Settings },
 ]

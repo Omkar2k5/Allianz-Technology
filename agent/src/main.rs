@@ -5,6 +5,7 @@
 use anyhow::Result;
 use tracing::{info, error};
 use tracing_subscriber;
+use std::sync::Arc;
 
 mod config;
 mod proxy;
@@ -13,14 +14,33 @@ mod metrics;
 mod storage;
 mod windows;
 mod api;
+mod auth;
+pub mod sync;
+
+
+fn pause() {
+    use std::io::{self, Write};
+    let mut stdout = io::stdout();
+    write!(stdout, "\nPress Enter to exit...").unwrap();
+    stdout.flush().unwrap();
+    let _ = io::stdin().read_line(&mut String::new());
+}
 
 #[tokio::main]
-async fn main() -> Result<()> {
+async fn main() {
     // Initialize logging
     tracing_subscriber::fmt()
         .with_env_filter("ecocompute_agent=debug,info")
         .init();
 
+    if let Err(e) = run().await {
+        error!("❌ Critical Error: {:?}", e);
+        pause();
+        std::process::exit(1);
+    }
+}
+
+async fn run() -> Result<()> {
     info!("🚀 Eco-Compute Agent starting...");
     info!("Version: {}", env!("CARGO_PKG_VERSION"));
 
@@ -29,8 +49,22 @@ async fn main() -> Result<()> {
     info!("✅ Configuration loaded");
 
     // Initialize local database
-    let db = storage::LocalCache::new(&config.db_path)?;
+    let db = Arc::new(storage::LocalCache::new(&config.db_path)?);
     info!("✅ Local database initialized");
+
+    // Authenticate user
+    info!("🔐 Checking authentication...");
+    let session = auth::authenticate(&config, &db).await?;
+    info!("✅ Authenticated as: {}", session.email);
+    info!("👤 User ID: {}", session.user_id);
+    
+    // Start background sync task
+    let db_clone = Arc::clone(&db);
+    let config_clone = config.clone();
+    let token_clone = session.jwt_token.clone();
+    tokio::spawn(async move {
+        sync::start_sync_loop(db_clone, config_clone, token_clone).await;
+    });
 
     // Set Windows system proxy
     #[cfg(target_os = "windows")]
@@ -60,7 +94,7 @@ async fn main() -> Result<()> {
     // Start proxy server
     info!("🌐 Starting proxy server on {}...", config.proxy_addr);
     
-    match proxy::start_server(config.clone(), db).await {
+    match proxy::start_server(config.clone(), db, session.user_id.clone()).await {
         Ok(_) => {
             info!("✅ Proxy server started successfully");
         }

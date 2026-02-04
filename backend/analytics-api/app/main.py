@@ -11,7 +11,7 @@ import logging
 from contextlib import asynccontextmanager
 
 # Import routes
-from app.routes import metrics, apps, policies, dashboard, auth, agents
+from app.routes import metrics, apps, policies, dashboard, auth, agents, agent_auth, agent_logs, model_specs
 from app.database.connection import engine, Base
 from app.config import settings
 
@@ -86,11 +86,14 @@ async def root():
 
 # Include routers
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
+app.include_router(agent_auth.router, prefix="/api/agent", tags=["Agent Auth"])
+app.include_router(agent_logs.router, prefix="/api/agent", tags=["Agent Logs"])
 app.include_router(agents.router, prefix="/api/v1/agents", tags=["Agents"])
 app.include_router(metrics.router, prefix="/api/v1/metrics", tags=["Metrics"])
 app.include_router(apps.router, prefix="/api/v1/apps", tags=["Applications"])
 app.include_router(policies.router, prefix="/api/v1/policies", tags=["Policies"])
 app.include_router(dashboard.router, prefix="/api/v1/dashboard", tags=["Dashboard"])
+app.include_router(model_specs.router, prefix="/api/v1/model-specs", tags=["Model Specifications"])
 
 
 # Global exception handler
