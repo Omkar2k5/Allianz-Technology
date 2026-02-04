@@ -1,6 +1,4 @@
-"""
-Cloud API client for syncing logs
-"""
+
 
 use reqwest::Client;
 use anyhow::Result;

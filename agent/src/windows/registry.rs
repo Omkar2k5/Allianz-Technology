@@ -1,6 +1,4 @@
-"""
-Windows Registry manipulation for proxy settings
-"""
+
 
 #[cfg(target_os = "windows")]
 use windows::Win32::System::Registry::*;

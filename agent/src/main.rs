@@ -1,8 +1,6 @@
-"""
-Eco-Compute Windows Desktop Agent
-
-System-level monitoring of AI API usage with automatic cost and carbon tracking.
-"""
+//! Eco-Compute Windows Desktop Agent
+//!
+//! System-level monitoring of AI API usage with automatic cost and carbon tracking.
 
 use anyhow::Result;
 use tracing::{info, error};
@@ -40,6 +38,25 @@ async fn main() -> Result<()> {
         windows::registry::set_system_proxy(true, &config.proxy_addr)?;
         info!("✅ System proxy configured: {}", config.proxy_addr);
     }
+
+    // Setup Ctrl+C handler for graceful shutdown
+    let proxy_addr = config.proxy_addr.clone();
+    tokio::spawn(async move {
+        tokio::signal::ctrl_c().await.expect("Failed to listen for Ctrl+C");
+        info!("🛑 Shutdown signal received");
+        
+        // Disable system proxy
+        #[cfg(target_os = "windows")]
+        {
+            if let Err(e) = windows::registry::set_system_proxy(false, "") {
+                error!("Failed to disable proxy: {}", e);
+            } else {
+                info!("✅ System proxy disabled");
+            }
+        }
+        
+        std::process::exit(0);
+    });
 
     // Start proxy server
     info!("🌐 Starting proxy server on {}...", config.proxy_addr);

@@ -1,6 +1,4 @@
-"""
-Metrics calculator
-"""
+
 
 pub struct MetricsCalculator;
 

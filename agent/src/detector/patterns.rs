@@ -1,6 +1,4 @@
-"""
-AI API detection patterns
-"""
+
 
 pub struct AIDetector {
     domains: Vec<String>,

@@ -1,6 +1,4 @@
-"""
-Data models for AI request logs
-"""
+
 
 use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};

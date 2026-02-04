@@ -1,6 +1,4 @@
-"""
-AI API detection module
-"""
+
 
 pub mod patterns;
 

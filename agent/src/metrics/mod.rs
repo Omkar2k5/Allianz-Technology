@@ -1,6 +1,4 @@
-"""
-Metrics calculation module
-"""
+
 
 pub mod calculator;
 pub mod models;

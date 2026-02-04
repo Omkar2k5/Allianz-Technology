@@ -1,6 +1,4 @@
-"""
-Configuration management for the agent
-"""
+
 
 use serde::{Deserialize, Serialize};
 use anyhow::Result;

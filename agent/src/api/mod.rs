@@ -1,6 +1,4 @@
-"""
-Cloud API client module
-"""
+
 
 pub mod client;
 
