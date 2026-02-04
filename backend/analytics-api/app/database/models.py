@@ -36,15 +36,40 @@ class App(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
+class Agent(Base):
+    """Desktop monitoring agent installed on a computer"""
+    __tablename__ = "agents"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    computer_id = Column(String(255), unique=True, nullable=False)
+    computer_name = Column(String(255))
+    team_id = Column(UUID(as_uuid=True), ForeignKey('teams.id', ondelete='CASCADE'))
+    agent_version = Column(String(50))
+    os_version = Column(String(100))
+    status = Column(String(20), default='active')
+    last_heartbeat = Column(DateTime)
+    installed_by = Column(UUID(as_uuid=True), ForeignKey('users.id'))
+    installed_at = Column(DateTime, default=datetime.utcnow)
+    api_key_hash = Column(String(255))
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
 class GenAIRequest(Base):
     __tablename__ = "genai_requests"
     
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     app_id = Column(UUID(as_uuid=True), ForeignKey('apps.id', ondelete='CASCADE'))
     model_id = Column(UUID(as_uuid=True), ForeignKey('models.id'))
+    user_id = Column(UUID(as_uuid=True), ForeignKey('users.id'))
+    agent_id = Column(UUID(as_uuid=True), ForeignKey('agents.id'))  # NEW: Agent tracking
     
     timestamp = Column(DateTime, nullable=False, default=datetime.utcnow)
     request_hash = Column(String(64), nullable=False)
+    
+    # Agent-specific metadata
+    computer_name = Column(String(255))  # NEW
+    process_name = Column(String(255))   # NEW
     
     model_name = Column(String(100), nullable=False)
     provider = Column(String(50), nullable=False)
@@ -139,3 +164,15 @@ class Recommendation(Base):
     metadata = Column(JSON)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class RefreshToken(Base):
+    __tablename__ = "refresh_tokens"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey('users.id', ondelete='CASCADE'))
+    
+    token = Column(String(255), unique=True, nullable=False)
+    expires_at = Column(DateTime, nullable=False)
+    
+    created_at = Column(DateTime, default=datetime.utcnow)

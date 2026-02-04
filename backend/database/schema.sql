@@ -70,6 +70,77 @@ INSERT INTO models (name, provider, parameters, energy_per_1k_tokens, efficiency
 ('llama-3-70b', 'meta', '70B', 0.0006, 'B', 60);
 
 -- ============================================================================
+-- USERS (For dashboard authentication) - MUST BE BEFORE genai_requests
+-- ============================================================================
+
+CREATE TABLE users (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    team_id UUID REFERENCES teams(id) ON DELETE CASCADE,
+    
+    email VARCHAR(255) NOT NULL UNIQUE,
+    password_hash VARCHAR(255) NOT NULL,
+    
+    first_name VARCHAR(100),
+    last_name VARCHAR(100),
+    
+    role VARCHAR(50) DEFAULT 'viewer', -- admin, analyst, developer, viewer
+    
+    is_active BOOLEAN DEFAULT true,
+    last_login TIMESTAMPTZ,
+    
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_users_email ON users(email);
+CREATE INDEX idx_users_team_id ON users(team_id);
+
+COMMENT ON TABLE users IS 'Dashboard users with authentication credentials';
+COMMENT ON COLUMN users.password_hash IS 'Bcrypt hashed password';
+
+-- ============================================================================
+-- AGENTS (Desktop monitoring agents installed on computers)
+-- ============================================================================
+
+CREATE TABLE agents (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    
+    -- Computer identification
+    computer_id VARCHAR(255) UNIQUE NOT NULL,  -- Unique hardware ID
+    computer_name VARCHAR(255),                 -- Windows computer name
+    
+    -- Organization/Team
+    team_id UUID REFERENCES teams(id) ON DELETE CASCADE,
+    
+    -- Agent information
+    agent_version VARCHAR(50),                  -- e.g., "0.1.0"
+    os_version VARCHAR(100),                    -- e.g., "Windows 11 Pro 22H2"
+    
+    -- Status
+    status VARCHAR(20) DEFAULT 'active',        -- active, inactive, offline
+    last_heartbeat TIMESTAMPTZ,                 -- Last time agent checked in
+    
+    -- Installation info
+    installed_by UUID REFERENCES users(id),     -- Which admin installed it
+    installed_at TIMESTAMPTZ DEFAULT NOW(),
+    
+    -- API credentials
+    api_key_hash VARCHAR(255),                  -- Hashed API key for authentication
+    
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_agents_team_id ON agents(team_id);
+CREATE INDEX idx_agents_computer_id ON agents(computer_id);
+CREATE INDEX idx_agents_status ON agents(status);
+CREATE INDEX idx_agents_last_heartbeat ON agents(last_heartbeat);
+
+COMMENT ON TABLE agents IS 'Desktop monitoring agents installed on employee computers';
+COMMENT ON COLUMN agents.computer_id IS 'Unique hardware identifier (e.g., motherboard UUID + MAC)';
+COMMENT ON COLUMN agents.last_heartbeat IS 'Updated every 5 minutes by agent';
+
+-- ============================================================================
 -- GENAI REQUESTS (Core logging table)
 -- ============================================================================
 
@@ -77,10 +148,16 @@ CREATE TABLE genai_requests (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     app_id UUID REFERENCES apps(id) ON DELETE CASCADE,
     model_id UUID REFERENCES models(id),
+    user_id UUID REFERENCES users(id),  -- Track which user made the request
+    agent_id UUID REFERENCES agents(id), -- NEW: Which agent logged this request
     
     -- Request metadata
     timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     request_hash VARCHAR(64) NOT NULL, -- SHA-256 hash of request (NOT the actual prompt)
+    
+    -- Agent-specific metadata
+    computer_name VARCHAR(255),         -- NEW: Computer name where request originated
+    process_name VARCHAR(255),          -- NEW: Process that made the API call (e.g., chrome.exe, code.exe)
     
     -- Model & Provider
     model_name VARCHAR(100) NOT NULL,
@@ -314,30 +391,24 @@ INSERT INTO carbon_intensity_regions (region_code, region_name, cloud_provider, 
 ('ca-central-1', 'Canada (Central)', 'aws', 0.05, 95.0, 'Canada');
 
 -- ============================================================================
--- USERS (For dashboard authentication)
+-- REFRESH TOKENS (JWT Token Management)
 -- ============================================================================
 
-CREATE TABLE users (
+CREATE TABLE refresh_tokens (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    team_id UUID REFERENCES teams(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
     
-    email VARCHAR(255) NOT NULL UNIQUE,
-    password_hash VARCHAR(255) NOT NULL,
+    token VARCHAR(255) UNIQUE NOT NULL,
+    expires_at TIMESTAMPTZ NOT NULL,
     
-    first_name VARCHAR(100),
-    last_name VARCHAR(100),
-    
-    role VARCHAR(50) DEFAULT 'viewer', -- admin, analyst, developer, viewer
-    
-    is_active BOOLEAN DEFAULT true,
-    last_login TIMESTAMPTZ,
-    
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
+    created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_users_email ON users(email);
-CREATE INDEX idx_users_team_id ON users(team_id);
+CREATE INDEX idx_refresh_tokens_user_id ON refresh_tokens(user_id);
+CREATE INDEX idx_refresh_tokens_token ON refresh_tokens(token);
+CREATE INDEX idx_refresh_tokens_expires_at ON refresh_tokens(expires_at);
+
+COMMENT ON TABLE refresh_tokens IS 'JWT refresh tokens for extended user sessions';
 
 -- ============================================================================
 -- FUNCTIONS & TRIGGERS

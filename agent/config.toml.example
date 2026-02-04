@@ -1,0 +1,17 @@
+# Eco-Compute Agent Configuration
+
+# Proxy Settings
+proxy_addr = "127.0.0.1:8080"
+proxy_port = 8080
+
+# API Settings
+api_url = "http://localhost:8000"
+# agent_id = ""  # Set after registration
+# api_key = ""   # Set after registration
+
+# Storage
+db_path = "ecocompute.db"
+
+# Sync Settings
+sync_interval_secs = 300  # 5 minutes
+batch_size = 100
