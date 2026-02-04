@@ -1,13 +1,14 @@
 
 use anyhow::{Result, Context};
-use hyper::{Request, Response, Method, StatusCode, Uri};
-use hyper::body::{Body, Incoming};
-use hyper::client::conn::http1::SendRequest;
-use http_body_util::{BodyExt, Full};
-use hyper::upgrade::Upgraded;
+use hyper::{Request, Response, Method, StatusCode, Uri, Version};
+use hyper::body::Incoming;
+use http_body_util::Full;
 use bytes::Bytes;
 use tracing::{info, warn, error, debug};
 use std::sync::Arc;
+use tokio::net::TcpStream;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use hyper_util::rt::TokioIo;
 use crate::detector::AIDetector;
 use crate::storage::LocalCache;
 use hyper_util::client::legacy::Client;
@@ -38,6 +39,11 @@ impl ProxyHandler {
 
         debug!("📨 {} {}", method, uri);
 
+        // Handle CONNECT method for HTTPS tunneling
+        if method == Method::CONNECT {
+            return self.handle_connect(req).await;
+        }
+
         // Extract host and path for AI detection
         let host = headers
             .get("host")
@@ -52,7 +58,7 @@ impl ProxyHandler {
             // TODO: Intercept and log request/response
         }
 
-        // For now, just forward the request
+        // Forward regular HTTP request
         match self.forward_request(req).await {
             Ok(response) => {
                 debug!("✅ Response: {}", response.status());
@@ -66,6 +72,24 @@ impl ProxyHandler {
                     .unwrap())
             }
         }
+    }
+
+    async fn handle_connect(&self, req: Request<Incoming>) -> Result<Response<Full<Bytes>>> {
+        // Extract the target host and port from the URI
+        let uri = req.uri();
+        let host_port = uri.authority()
+            .map(|auth| auth.as_str())
+            .context("CONNECT request missing authority")?;
+
+        debug!("🔒 CONNECT tunnel to: {}", host_port);
+
+        // For now, we'll just return a 200 OK to establish the tunnel
+        // The actual tunneling will be handled at the connection level
+        Ok(Response::builder()
+            .status(StatusCode::OK)
+            .version(Version::HTTP_11)
+            .body(Full::new(Bytes::new()))
+            .unwrap())
     }
 
     async fn forward_request(&self, req: Request<Incoming>) -> Result<Response<Full<Bytes>>> {
@@ -135,5 +159,45 @@ impl ProxyHandler {
         *new_response.headers_mut() = parts.headers;
 
         Ok(new_response)
+    }
+
+    // Helper function to establish a tunnel (will be called from server.rs)
+    pub async fn tunnel_connection(client_stream: TcpStream, target: &str) -> Result<()> {
+        // Connect to the target server
+        let mut target_stream = TcpStream::connect(target)
+            .await
+            .context("Failed to connect to target")?;
+
+        debug!("✅ Tunnel established to {}", target);
+
+        // Split both streams
+        let (mut client_read, mut client_write) = client_stream.into_split();
+        let (mut target_read, mut target_write) = target_stream.split();
+
+        // Bidirectional copy
+        let client_to_target = async {
+            tokio::io::copy(&mut client_read, &mut target_write).await
+        };
+
+        let target_to_client = async {
+            tokio::io::copy(&mut target_read, &mut client_write).await
+        };
+
+        // Run both directions concurrently
+        tokio::select! {
+            result = client_to_target => {
+                if let Err(e) = result {
+                    debug!("Client to target copy error: {}", e);
+                }
+            }
+            result = target_to_client => {
+                if let Err(e) = result {
+                    debug!("Target to client copy error: {}", e);
+                }
+            }
+        }
+
+        debug!("🔒 Tunnel closed to {}", target);
+        Ok(())
     }
 }

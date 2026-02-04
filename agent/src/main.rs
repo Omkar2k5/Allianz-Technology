@@ -40,7 +40,6 @@ async fn main() -> Result<()> {
     }
 
     // Setup Ctrl+C handler for graceful shutdown
-    let proxy_addr = config.proxy_addr.clone();
     tokio::spawn(async move {
         tokio::signal::ctrl_c().await.expect("Failed to listen for Ctrl+C");
         info!("🛑 Shutdown signal received");
