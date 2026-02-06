@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import CountUp from 'react-countup'
 import {
     LineChart,
     Line,
@@ -75,7 +76,14 @@ export default function Usage() {
             }
         }
 
+        // Initial fetch
         fetchData()
+
+        // Poll every 5 seconds for live updates
+        const interval = setInterval(fetchData, 5000)
+
+        // Cleanup interval on unmount
+        return () => clearInterval(interval)
     }, [])
 
     if (loading) {
@@ -101,7 +109,11 @@ export default function Usage() {
                 <Card className="p-6 border border-border/50">
                     <p className="text-sm font-medium text-muted-foreground mb-1">Total API Calls</p>
                     <p className="text-3xl font-bold text-foreground">
-                        {overview?.total_calls?.toLocaleString() || 0}
+                        <CountUp
+                            end={overview?.total_calls || 0}
+                            duration={1.5}
+                            separator=","
+                        />
                     </p>
                     <p className="text-xs text-muted-foreground mt-2">
                         {overview?.calls_growth_percent > 0 ? '↑' : '↓'} {Math.abs(overview?.calls_growth_percent || 0)}% from last period
@@ -111,7 +123,22 @@ export default function Usage() {
                 <Card className="p-6 border border-border/50">
                     <p className="text-sm font-medium text-muted-foreground mb-1">Total Tokens Used</p>
                     <p className="text-3xl font-bold text-foreground">
-                        {totalTokens > 1000000 ? `${(totalTokens / 1000000).toFixed(1)}M` : totalTokens.toLocaleString()}
+                        {totalTokens > 1000000 ? (
+                            <>
+                                <CountUp
+                                    end={totalTokens / 1000000}
+                                    duration={1.5}
+                                    decimals={1}
+                                    separator=","
+                                />M
+                            </>
+                        ) : (
+                            <CountUp
+                                end={totalTokens}
+                                duration={1.5}
+                                separator=","
+                            />
+                        )}
                     </p>
                     <p className="text-xs text-muted-foreground mt-2">Last 30 days</p>
                 </Card>

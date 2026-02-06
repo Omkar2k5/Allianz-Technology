@@ -239,16 +239,31 @@ async fn proxy_request(
         Err(_) => return Ok(Response::new(Full::default())), 
     };
     
-    let body_str = String::from_utf8_lossy(&body_bytes);
+    let body_str = String::from_utf8_lossy(&body_bytes.clone()).into_owned();
     let mut request_data = None;
+
+    // Log ALL intercepted requests for ChatGPT to diagnose filtering
+    // if provider.contains("chatgpt.com") {
+    //     debug!("🔬 Intercepted ChatGPT request: method={}, path={}, body_len={}", 
+    //            parts.method, parts.uri.path(), body_str.len());
+    //     
+    //     // Log body for /backend-api/f/conversation to understand structure
+    //     if parts.uri.path().contains("/backend-api/f/conversation") && body_str.len() > 0 {
+    //         debug!("📦 ChatGPT conversation body: {}", &body_str.chars().take(1000).collect::<String>());
+    //     }
+    // }
 
     // Parse AI request
     if ai_parser::is_ai_completion_endpoint(&parts.uri.path()) {
         debug!("🔍 AI endpoint detected: {}", parts.uri.path());
         request_data = ai_parser::parse_ai_request(&body_str);
         if request_data.is_none() && body_str.len() > 0 {
-            debug!("📄 Request body preview (first 500 chars): {}", &body_str.chars().take(500).collect::<String>());
+            let req_preview: String = body_str.chars().take(500).collect();
+            debug!("📄 Request body preview (first 500 chars): {}", req_preview);
         }
+    } else if parts.uri.host().map(|h| h.contains("chatgpt.com")).unwrap_or(false) {
+        // Log all ChatGPT paths to help identify the actual prompt endpoint
+        debug!("🔎 ChatGPT request (not matched): path={}, method={}", parts.uri.path(), parts.method);
     }
     
     // Reconstruct request to forward
@@ -293,42 +308,52 @@ async fn proxy_request(
     
     // Log if we have request data
     if let Some(req_data) = request_data {
-        debug!("📊 Parsed AI request: model={}, prompt_len={}", req_data.model, req_data.prompt.len());
-        if let Some(resp_data) = ai_parser::parse_ai_response(&res_body_str) {
-            let _ = db.log_ai_request(
-                &uuid::Uuid::new_v4().to_string(),
-                &user_id,
-                &provider,
-                &req_data.model,
-                resp_data.prompt_tokens,
-                resp_data.completion_tokens,
-                resp_data.total_tokens,
-                latency
-            );
-            info!("📝 Logged AI Request: {} ({} tokens)", req_data.model, resp_data.total_tokens);
+        // Skip logging for unknown models (e.g. init requests)
+        let should_log = req_data.model != "unknown";
+
+        if should_log {
+            debug!("📊 Parsed AI request: model={}, prompt_len={}", req_data.model, req_data.prompt.len());
+            if let Some(resp_data) = ai_parser::parse_ai_response(&res_body_str) {
+                if let Err(e) = db.log_ai_request(
+                    &uuid::Uuid::new_v4().to_string(),
+                    &user_id,
+                    &provider,
+                    &req_data.model,
+                    resp_data.prompt_tokens,
+                    resp_data.completion_tokens,
+                    resp_data.total_tokens,
+                    latency
+                ) {
+                    error!("❌ Failed to log AI request: {}", e);
+                } else {
+                    info!("📝 Logged AI Request: {} ({} tokens)", req_data.model, resp_data.total_tokens);
+                }
+            } else {
+                // Fallback: Log with estimated tokens based on content length
+                // Rough estimate: 1 token ≈ 4 characters
+                let estimated_prompt_tokens = (req_data.prompt.len() / 4).max(10) as i32;
+                let estimated_completion_tokens = (res_body_str.len() / 4).max(10) as i32;
+                let estimated_total = estimated_prompt_tokens + estimated_completion_tokens;
+                
+                if let Err(e) = db.log_ai_request(
+                    &uuid::Uuid::new_v4().to_string(),
+                    &user_id,
+                    &provider,
+                    &req_data.model,
+                    estimated_prompt_tokens,
+                    estimated_completion_tokens,
+                    estimated_total,
+                    latency
+                ) {
+                    error!("❌ Failed to log AI request (fallback): {}", e);
+                }
+            }
         } else {
-            // Fallback: Log with estimated tokens based on content length
-            // Rough estimate: 1 token ≈ 4 characters
-            let estimated_prompt_tokens = (req_data.prompt.len() / 4).max(10) as i32;
-            let estimated_completion_tokens = (res_body_str.len() / 4).max(10) as i32;
-            let estimated_total = estimated_prompt_tokens + estimated_completion_tokens;
-            
-            let _ = db.log_ai_request(
-                &uuid::Uuid::new_v4().to_string(),
-                &user_id,
-                &provider,
-                &req_data.model,
-                estimated_prompt_tokens,
-                estimated_completion_tokens,
-                estimated_total,
-                latency
-            );
-            
-            info!("📝 Logged AI Request (estimated): {} (~{} tokens)", req_data.model, estimated_total);
-            debug!("⚠️  Could not parse AI response body (len={}), used estimation", res_body_str.len());
+            let body_preview: String = body_str.chars().take(200).collect();
+            debug!("⚠️  Filtered AI request (unknown model): path={}, body_preview={}", parts.uri.path(), body_preview);
         }
     } else {
-        debug!("⚠️  No request data parsed for path: {}", parts.uri.path());
+        // debug!("⚠️  No request data parsed for path: {}", parts.uri.path());
     }
     
     let upstream_res = Response::builder()

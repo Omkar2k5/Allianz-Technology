@@ -26,16 +26,30 @@ pub fn parse_ai_request(body: &str) -> Option<AIRequestData> {
     
     // Extract prompt from various possible fields
     let prompt = if let Some(messages) = json.get("messages").and_then(|m| m.as_array()) {
-        // OpenAI chat format
+        // ChatGPT format: messages[].content.parts[]
         messages.iter()
-            .filter_map(|msg| msg.get("content").and_then(|c| c.as_str()))
+            .filter_map(|msg| {
+                msg.get("content")
+                    .and_then(|content| {
+                        // Try nested parts array first (ChatGPT web format)
+                        if let Some(parts) = content.get("parts").and_then(|p| p.as_array()) {
+                            Some(parts.iter()
+                                .filter_map(|part| part.as_str())
+                                .collect::<Vec<_>>()
+                                .join(" "))
+                        } else {
+                            // Fallback to direct string content (OpenAI API format)
+                            content.as_str().map(|s| s.to_string())
+                        }
+                    })
+            })
             .collect::<Vec<_>>()
             .join(" ")
     } else if let Some(prompt_str) = json.get("prompt").and_then(|p| p.as_str()) {
         // Completion format
         prompt_str.to_string()
     } else if let Some(content) = json.get("content").and_then(|c| c.as_str()) {
-        // ChatGPT web format
+        // Direct content format
         content.to_string()
     } else {
         "".to_string()
@@ -176,13 +190,28 @@ fn try_decompress_gzip(data: &[u8]) -> Option<String> {
     }
 }
 
-/// Check if URI path is an AI completion endpoint
 pub fn is_ai_completion_endpoint(path: &str) -> bool {
+    // Exclude known auxiliary/list endpoints
+    if path.contains("/conversations")  // List endpoint (plural)
+        || path.contains("/init") 
+        || path.contains("/stream_status") 
+        || path.contains("/textdocs")
+        || path.contains("/generate_autocompletions")
+        || path.contains("/prepare")  // ChatGPT preparation endpoints
+        || path.contains("/finalize") // ChatGPT finalization endpoints
+        || path.contains("/ces/v1/")  // ChatGPT telemetry
+        || path.contains("/rgstr")    // ChatGPT registration
+        || path.contains("/lat/r")    // ChatGPT latency reporting
+        || path.contains("/links/list") // ChatGPT links
+        || path.contains("/sentinel/") { // ChatGPT sentinel/requirements
+        return false;
+    }
+
+    // Only match specific conversation endpoints with actual prompts
     path.contains("/chat/completions") 
         || path.contains("/completions")
         || path.contains("/v1/messages")  // Anthropic
-        || path.contains("/generate")     // Generic
-        || path.contains("/backend-api/conversation")  // ChatGPT web interface (all conversation endpoints)
-        || path.contains("/backend-api/f/conversation")  // ChatGPT conversation flow
+        || path.contains("/backend-api/f/conversation")  // ChatGPT main prompt endpoint
+        || path.contains("/backend-api/conversation/")   // ChatGPT conversation with UUID
         || path.contains("/api/chat")     // Generic chat API
 }

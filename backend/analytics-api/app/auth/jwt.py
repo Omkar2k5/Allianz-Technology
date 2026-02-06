@@ -5,6 +5,7 @@ JWT token creation and validation utilities
 from datetime import datetime, timedelta
 from typing import Optional, Dict
 import jwt
+import uuid
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
@@ -136,7 +137,11 @@ async def get_current_user(
         )
     
     # Get user from database
-    user = db.query(User).filter(User.id == user_id).first()
+    try:
+        user_uuid = uuid.UUID(user_id)
+        user = db.query(User).filter(User.id == user_uuid).first()
+    except ValueError:
+        user = None
     
     if user is None:
         raise HTTPException(

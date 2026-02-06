@@ -59,12 +59,13 @@ async fn run() -> Result<()> {
     info!("👤 User ID: {}", session.user_id);
     
     // Start background sync task
-    let db_clone = Arc::clone(&db);
-    let config_clone = config.clone();
-    let token_clone = session.jwt_token.clone();
-    tokio::spawn(async move {
-        sync::start_sync_loop(db_clone, config_clone, token_clone).await;
-    });
+    // Start background sync task -> DISABLED (Using Shared DB)
+    // let db_clone = Arc::clone(&db);
+    // let config_clone = config.clone();
+    // let token_clone = session.jwt_token.clone();
+    // tokio::spawn(async move {
+    //    sync::start_sync_loop(db_clone, config_clone, token_clone).await;
+    // });
 
     // Set Windows system proxy
     #[cfg(target_os = "windows")]

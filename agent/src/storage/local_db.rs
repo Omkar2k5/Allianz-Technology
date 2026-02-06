@@ -15,47 +15,20 @@ impl LocalCache {
     pub fn new(db_path: &str) -> Result<Self> {
         let conn = Connection::open(db_path)?;
         
-        // Create ai_requests table
-        conn.execute(
-            "CREATE TABLE IF NOT EXISTS ai_requests (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                request_id TEXT UNIQUE NOT NULL,
-                timestamp TEXT NOT NULL,
-                user_id TEXT NOT NULL,
-                user_name TEXT NOT NULL,
-                computer_name TEXT NOT NULL,
-                process_name TEXT,
-                provider TEXT NOT NULL,
-                model TEXT NOT NULL,
-                prompt_tokens INTEGER,
-                completion_tokens INTEGER,
-                total_tokens INTEGER,
-                cost_usd REAL,
-                energy_wh REAL,
-                co2_g REAL,
-                latency_ms INTEGER,
-                region TEXT,
-                synced INTEGER DEFAULT 0,
-                created_at TEXT DEFAULT CURRENT_TIMESTAMP
-            )",
-            [],
-        )?;
+        // Optimize for concurrency
+        conn.pragma_update(None, "journal_mode", "WAL")?;
+        conn.pragma_update(None, "synchronous", "NORMAL")?;
+        conn.busy_timeout(std::time::Duration::from_millis(5000))?;
+        
+        // We are using the Shared Backend DB (ecocompute.db).
+        // The tables (genai_requests) are created by the Python backend.
+        // We do NOT create tables here to avoid conflicts.
+        
+        // Check if we can access the table
+        // let _ = conn.execute("SELECT 1 FROM genai_requests LIMIT 1", []);
 
-        // Create user_session table
-        conn.execute(
-            "CREATE TABLE IF NOT EXISTS user_session (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id TEXT NOT NULL,
-                email TEXT NOT NULL,
-                jwt_token TEXT NOT NULL,
-                refresh_token TEXT,
-                expires_at TEXT NOT NULL,
-                created_at TEXT DEFAULT CURRENT_TIMESTAMP
-            )",
-            [],
-        )?;
-
-        info!("✅ Local database table created/verified");
+        let abs_path = std::fs::canonicalize(db_path).unwrap_or_else(|_| std::path::PathBuf::from(db_path));
+        info!("✅ Connected to shared database: {:?} (configured: {})", abs_path, db_path);
 
         Ok(Self { 
             conn: Mutex::new(conn)
@@ -80,28 +53,40 @@ impl LocalCache {
         let conn = self.get_connection();
         
         // Get system info
-        let user_name = whoami::username();
         let computer_name = whoami::devicename();
+        // let user_name = whoami::username(); // Not used in backend schema directly, maybe in future
+        
+        // Generate new UUID for the record ID
+        let id = uuid::Uuid::new_v4().to_string();
+        
+        // Current timestamp in ISO format (SQLAlchemy/SQLite friendly)
+        let timestamp = chrono::Utc::now().naive_utc().to_string();
+
+        // Note: We are writing directly to the backend's `genai_requests` table.
+        // Schema keys: id, request_hash, model_name, provider, tokens_input, tokens_output, tokens_total, 
+        //              latency_ms, computer_name, timestamp, user_id (FK), created_at
+        // Foreign keys like app_id, model_id, agent_id are left NULL as the agent doesn't have them yet.
+        // user_id is passed as string (UUID)
         
         conn.execute(
-            "INSERT INTO ai_requests (
-                request_id, timestamp, user_id, user_name, computer_name,
-                provider, model, prompt_tokens, completion_tokens, total_tokens,
-                latency_ms, region, synced
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, 0)",
+            "INSERT INTO genai_requests (
+                id, request_hash, timestamp, user_id, 
+                model_name, provider, 
+                tokens_input, tokens_output, tokens_total,
+                latency_ms, computer_name, created_at
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?3)",
             (
-                request_id,
-                chrono::Utc::now().to_rfc3339(),
-                user_id,
-                user_name,
-                computer_name,
-                provider,
-                model,
-                prompt_tokens,
-                completion_tokens,
-                total_tokens,
-                latency_ms,
-                "unknown", // region - can be enhanced later
+                id,             // ?1: id
+                request_id,     // ?2: request_hash (mapped from request_id)
+                timestamp,      // ?3: timestamp & created_at
+                user_id.replace("-", ""), // ?4: user_id (strip hyphens to match backend UUID format)
+                model,          // ?5: model_name
+                provider,       // ?6: provider
+                prompt_tokens,  // ?7: tokens_input
+                completion_tokens, // ?8: tokens_output
+                total_tokens,   // ?9: tokens_total
+                latency_ms,     // ?10: latency_ms
+                computer_name,  // ?11: computer_name
             ),
         )?;
         

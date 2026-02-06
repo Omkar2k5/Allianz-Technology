@@ -19,7 +19,7 @@ class Settings(BaseSettings):
     API_LOG_LEVEL: str = "info"
     
     # Database
-    DATABASE_URL: str = "postgresql://admin:password@localhost:5432/ecocompute"
+    DATABASE_URL: str = "sqlite:///./ecocompute.db"
     
     # Authentication
     JWT_SECRET: str = "your-secret-key-change-in-production"

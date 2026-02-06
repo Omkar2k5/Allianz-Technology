@@ -31,8 +31,8 @@ async def lifespan(app: FastAPI):
     logger.info(f"Environment: {settings.ENVIRONMENT}")
     logger.info(f"Database: {settings.DATABASE_URL.split('@')[1] if '@' in settings.DATABASE_URL else 'configured'}")
     
-    # Create tables (in production, use Alembic migrations)
-    # Base.metadata.create_all(bind=engine)
+    # Create tables (ensure SQLite tables exist)
+    Base.metadata.create_all(bind=engine)
     
     yield
     

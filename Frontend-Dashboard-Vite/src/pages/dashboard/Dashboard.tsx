@@ -18,6 +18,7 @@ import {
 } from 'recharts'
 import { TrendingUp, AlertCircle, Zap, Wind, Activity, ArrowUpRight } from 'lucide-react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { AnimatedNumber } from '@/components/AnimatedNumber'
 
 export default function Dashboard() {
     const [loading, setLoading] = useState(true)
@@ -42,6 +43,13 @@ export default function Dashboard() {
                 const overviewData = await overviewRes.json()
                 const usageData = await usageRes.json()
 
+                console.log('Dashboard data updated:', {
+                    total_calls: overviewData?.total_calls,
+                    total_energy_wh: overviewData?.total_energy_wh,
+                    total_co2_g: overviewData?.total_co2_g,
+                    avg_latency_ms: overviewData?.avg_latency_ms
+                })
+
                 setOverview(overviewData)
                 setUsage(usageData)
 
@@ -62,7 +70,7 @@ export default function Dashboard() {
         }
 
         fetchData()
-        const interval = setInterval(fetchData, 5000)
+        const interval = setInterval(fetchData, 2000)
 
         return () => clearInterval(interval)
     }, [])
@@ -92,10 +100,10 @@ export default function Dashboard() {
                         <div>
                             <p className="text-sm font-medium text-muted-foreground mb-1">Total AI Calls</p>
                             <p className="text-3xl font-bold text-foreground">
-                                {overview?.total_calls?.toLocaleString() || 0}
+                                <AnimatedNumber value={overview?.total_calls || 0} />
                             </p>
                             <p className="text-xs text-muted-foreground mt-2">
-                                {overview?.calls_growth_percent > 0 ? '↑' : '↓'} {Math.abs(overview?.calls_growth_percent || 0)}% last period
+                                {overview?.calls_growth_percent > 0 ? '↑' : '↓'} <AnimatedNumber value={Math.abs(overview?.calls_growth_percent || 0)} decimals={1} />% last period
                             </p>
                         </div>
                         <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
@@ -109,7 +117,7 @@ export default function Dashboard() {
                         <div>
                             <p className="text-sm font-medium text-muted-foreground mb-1">Total Energy</p>
                             <p className="text-3xl font-bold text-foreground">
-                                {overview?.total_energy_wh?.toFixed(1) || 0} <span className="text-sm font-normal">Wh</span>
+                                <AnimatedNumber value={overview?.total_energy_wh || 0} decimals={1} suffix="Wh" />
                             </p>
                             <p className="text-xs text-muted-foreground mt-2">↓ 2% last month</p>
                         </div>
@@ -124,7 +132,7 @@ export default function Dashboard() {
                         <div>
                             <p className="text-sm font-medium text-muted-foreground mb-1">CO₂ Emissions</p>
                             <p className="text-3xl font-bold text-foreground">
-                                {overview?.total_co2_g?.toFixed(2) || 0} <span className="text-sm font-normal">g</span>
+                                <AnimatedNumber value={overview?.total_co2_g || 0} decimals={2} suffix="g" />
                             </p>
                             <p className="text-xs text-muted-foreground mt-2">from backend model</p>
                         </div>
@@ -139,7 +147,7 @@ export default function Dashboard() {
                         <div>
                             <p className="text-sm font-medium text-muted-foreground mb-1">Avg. Latency</p>
                             <p className="text-3xl font-bold text-foreground">
-                                {overview?.avg_latency_ms || 0} <span className="text-sm font-normal">ms</span>
+                                <AnimatedNumber value={overview?.avg_latency_ms || 0} suffix="ms" />
                             </p>
                             <p className="text-xs text-muted-foreground mt-2">Global average</p>
                         </div>

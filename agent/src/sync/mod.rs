@@ -16,9 +16,9 @@ struct BatchLogResponse {
 }
 
 pub async fn start_sync_loop(db: Arc<LocalCache>, config: Config, jwt_token: String) {
-    let mut interval = interval(Duration::from_secs(60)); // Sync every minute
+    let mut interval = interval(Duration::from_secs(5)); // Sync every 5 seconds for near-real-time updates
     
-    info!("🔄 Background sync task started (interval: 60s)");
+    info!("🔄 Background sync task started (interval: 5s)");
     
     loop {
         interval.tick().await;

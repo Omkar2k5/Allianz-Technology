@@ -31,7 +31,7 @@ impl Default for Config {
             api_url: "http://127.0.0.1:8000".to_string(),
             agent_id: None,
             api_key: None,
-            db_path: "ecocompute.db".to_string(),
+            db_path: "../backend/analytics-api/ecocompute.db".to_string(),
             sync_interval_secs: 300, // 5 minutes
             batch_size: 100,
         }
