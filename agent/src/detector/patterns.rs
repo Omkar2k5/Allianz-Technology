@@ -16,6 +16,7 @@ impl AIDetector {
                 "openrouter.ai".to_string(),
                 "api.cohere.ai".to_string(),
                 "generativelanguage.googleapis.com".to_string(),
+                "gemini.google.com".to_string(),
             ],
         }
     }

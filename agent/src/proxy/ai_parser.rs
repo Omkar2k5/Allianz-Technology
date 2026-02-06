@@ -16,6 +16,11 @@ pub struct AIResponseData {
 
 /// Parse OpenAI-compatible request body
 pub fn parse_ai_request(body: &str) -> Option<AIRequestData> {
+    // Check if this is a Gemini request (URL-encoded with f.req parameter)
+    if body.starts_with("f.req=") {
+        return parse_gemini_request(body);
+    }
+    
     let json: serde_json::Value = serde_json::from_str(body).ok()?;
     
     // Extract model (ChatGPT uses "model" field)
@@ -56,6 +61,27 @@ pub fn parse_ai_request(body: &str) -> Option<AIRequestData> {
     };
     
     Some(AIRequestData { model, prompt })
+}
+
+/// Parse Gemini URL-encoded request
+fn parse_gemini_request(body: &str) -> Option<AIRequestData> {
+    // URL decode the body
+    let decoded = urlencoding::decode(body).ok()?;
+    
+    // Extract the prompt - Gemini sends it in the f.req parameter as a nested JSON array
+    // Look for text between quotes that looks like a user prompt
+    // Simple heuristic: find text after "google" that's not a conversation ID
+    let prompt = decoded
+        .split("\\\"")
+        .filter(|s| s.len() > 10 && !s.starts_with("c_") && !s.starts_with("r_") && !s.starts_with("rc_"))
+        .find(|s| !s.contains("google") && !s.contains("en-IN") && !s.contains("Aw"))
+        .unwrap_or("")
+        .to_string();
+    
+    Some(AIRequestData {
+        model: "gemini-pro".to_string(),
+        prompt,
+    })
 }
 
 /// Parse OpenAI-compatible response body
@@ -203,7 +229,10 @@ pub fn is_ai_completion_endpoint(path: &str) -> bool {
         || path.contains("/rgstr")    // ChatGPT registration
         || path.contains("/lat/r")    // ChatGPT latency reporting
         || path.contains("/links/list") // ChatGPT links
-        || path.contains("/sentinel/") { // ChatGPT sentinel/requirements
+        || path.contains("/sentinel/") // ChatGPT sentinel/requirements
+        || path.contains("/jserror")  // Gemini JS errors
+        || path.contains("/cspreport") // Gemini CSP reports
+        || path.contains("/batchexecute") { // Gemini batch operations
         return false;
     }
 
@@ -214,4 +243,5 @@ pub fn is_ai_completion_endpoint(path: &str) -> bool {
         || path.contains("/backend-api/f/conversation")  // ChatGPT main prompt endpoint
         || path.contains("/backend-api/conversation/")   // ChatGPT conversation with UUID
         || path.contains("/api/chat")     // Generic chat API
+        || path.contains("/StreamGenerate") // Gemini prompt endpoint
 }

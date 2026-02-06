@@ -242,16 +242,18 @@ async fn proxy_request(
     let body_str = String::from_utf8_lossy(&body_bytes.clone()).into_owned();
     let mut request_data = None;
 
-    // Log ALL intercepted requests for ChatGPT to diagnose filtering
-    // if provider.contains("chatgpt.com") {
-    //     debug!("🔬 Intercepted ChatGPT request: method={}, path={}, body_len={}", 
-    //            parts.method, parts.uri.path(), body_str.len());
-    //     
-    //     // Log body for /backend-api/f/conversation to understand structure
-    //     if parts.uri.path().contains("/backend-api/f/conversation") && body_str.len() > 0 {
-    //         debug!("📦 ChatGPT conversation body: {}", &body_str.chars().take(1000).collect::<String>());
-    //     }
-    // }
+    // Log intercepted requests for AI services to diagnose filtering
+    if provider.contains("chatgpt.com") || provider.contains("gemini.google.com") {
+        debug!("🔬 Intercepted {} request: method={}, path={}, body_len={}", 
+               provider, parts.method, parts.uri.path(), body_str.len());
+        
+        // Log body for conversation endpoints to understand structure
+        if (parts.uri.path().contains("/backend-api/f/conversation") || 
+            parts.uri.path().contains("generate") || 
+            parts.uri.path().contains("stream")) && body_str.len() > 0 {
+            debug!("📦 {} conversation body: {}", provider, &body_str.chars().take(1000).collect::<String>());
+        }
+    }
 
     // Parse AI request
     if ai_parser::is_ai_completion_endpoint(&parts.uri.path()) {
