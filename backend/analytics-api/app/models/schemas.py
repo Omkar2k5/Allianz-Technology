@@ -75,7 +75,7 @@ class ActivityLog(BaseModel):
     tokens: int
     latency_ms: int
     energy_wh: float
-    power_w: float
+    co2_g: float
 
 
 class EnergyMetrics(BaseModel):

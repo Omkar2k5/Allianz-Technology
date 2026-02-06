@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import CountUp from 'react-countup'
 import {
     AreaChart,
     Area,
@@ -46,7 +47,7 @@ export default function Energy() {
                 if (energyData && energyData.daily_energy) {
                     const processed = energyData.daily_energy.map((d: any) => ({
                         month: new Date(d.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-                        inference: d.energy_wh / 1000, // Convert to kWh
+                        inference: d.energy_wh, // Already in Wh
                         training: 0 // Mock training data for now
                     }))
                     setDailyEnergy(processed)
@@ -56,7 +57,7 @@ export default function Energy() {
                 if (energyData && energyData.by_model) {
                     const processedModels = energyData.by_model.map((m: any) => ({
                         name: m.model,
-                        inference: m.energy_wh / 1000, // Convert to kWh
+                        inference: m.energy_wh, // Already in Wh
                         training: 0
                     }))
                     setModelEnergy(processedModels)
@@ -84,9 +85,9 @@ export default function Energy() {
     }
 
     // Calculations
-    const totalKWh = (energyMetrics?.total_energy_wh || 0) / 1000
-    const avgKWhPerRequest = overview?.total_calls > 0 ? totalKWh / overview.total_calls : 0
-    const avgKWhPerModel = modelEnergy.length > 0 ? totalKWh / modelEnergy.length : 0
+    const totalWh = (energyMetrics?.total_energy_wh || 0)
+    const avgWhPerRequest = overview?.total_calls > 0 ? totalWh / overview.total_calls : 0
+    const avgWhPerModel = modelEnergy.length > 0 ? totalWh / modelEnergy.length : 0
 
     return (
         <div className="p-6 space-y-6 md:ml-64">
@@ -101,20 +102,26 @@ export default function Energy() {
             {/* Summary Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <Card className="p-6 border border-border/50">
-                    <p className="text-sm font-medium text-muted-foreground mb-1">Total kWh Consumed</p>
-                    <p className="text-3xl font-bold text-foreground">{totalKWh.toFixed(2)} kWh</p>
+                    <p className="text-sm font-medium text-muted-foreground mb-1">Total Wh Consumed</p>
+                    <p className="text-3xl font-bold text-foreground">
+                        <CountUp end={totalWh} decimals={2} duration={1.5} /> Wh
+                    </p>
                     <p className="text-xs text-muted-foreground mt-2">Last 30 days</p>
                 </Card>
 
                 <Card className="p-6 border border-border/50">
-                    <p className="text-sm font-medium text-muted-foreground mb-1">Avg. kWh/Request</p>
-                    <p className="text-3xl font-bold text-foreground">{avgKWhPerRequest.toFixed(5)}</p>
+                    <p className="text-sm font-medium text-muted-foreground mb-1">Avg. Wh/Request</p>
+                    <p className="text-3xl font-bold text-foreground">
+                        <CountUp end={avgWhPerRequest} decimals={2} duration={1.5} />
+                    </p>
                     <p className="text-xs text-muted-foreground mt-2">Global Average</p>
                 </Card>
 
                 <Card className="p-6 border border-border/50">
-                    <p className="text-sm font-medium text-muted-foreground mb-1">Avg. kWh/Model</p>
-                    <p className="text-3xl font-bold text-foreground">{avgKWhPerModel.toFixed(2)}</p>
+                    <p className="text-sm font-medium text-muted-foreground mb-1">Avg. Wh/Model</p>
+                    <p className="text-3xl font-bold text-foreground">
+                        <CountUp end={avgWhPerModel} decimals={2} duration={1.5} />
+                    </p>
                     <p className="text-xs text-muted-foreground mt-2">Across active models</p>
                 </Card>
 
@@ -132,7 +139,7 @@ export default function Energy() {
                     <div className="flex items-center justify-between mb-6">
                         <div>
                             <h3 className="text-lg font-semibold text-foreground">Energy Consumption Trend</h3>
-                            <p className="text-sm text-muted-foreground">Last 30 days (kWh)</p>
+                            <p className="text-sm text-muted-foreground">Last 30 days (Wh)</p>
                         </div>
                         <Button variant="outline" size="sm">
                             <Download className="w-4 h-4 mr-2" />
@@ -164,7 +171,7 @@ export default function Energy() {
                                     stackId="1"
                                     stroke="var(--color-primary)"
                                     fill="url(#colorEnergy)"
-                                    name="Inference (kWh)"
+                                    name="Inference (Wh)"
                                 />
                             </AreaChart>
                         ) : (
@@ -179,7 +186,7 @@ export default function Energy() {
                 <Card className="p-6 border border-border/50">
                     <div className="flex items-center justify-between mb-6">
                         <div>
-                            <h3 className="text-lg font-semibold text-foreground">Energy Consumption by Model (kWh)</h3>
+                            <h3 className="text-lg font-semibold text-foreground">Energy Consumption by Model (Wh)</h3>
                             <p className="text-sm text-muted-foreground">Current period</p>
                         </div>
                     </div>
@@ -197,7 +204,7 @@ export default function Energy() {
                                     }}
                                 />
                                 <Legend />
-                                <Bar dataKey="inference" fill="var(--color-primary)" name="Inference (kWh)" />
+                                <Bar dataKey="inference" fill="var(--color-primary)" name="Inference (Wh)" />
                             </BarChart>
                         ) : (
                             <div className="flex items-center justify-center h-full text-muted-foreground">
@@ -216,7 +223,7 @@ export default function Energy() {
                         Inference energy is calculated based on token count and model-specific energy factors.
                     </p>
                     <ul className="space-y-2 text-sm">
-                        <li className="text-foreground">• <span className="font-medium">Total Inference kWh:</span> {totalKWh.toFixed(2)} kWh</li>
+                        <li className="text-foreground">• <span className="font-medium">Total Inference Wh:</span> {totalWh.toFixed(2)} Wh</li>
                         <li className="text-foreground">• <span className="font-medium">Avg. Latency/ms:</span> {overview?.avg_latency_ms || 0} ms</li>
                         <li className="text-foreground">• <span className="font-medium">Total Requests:</span> {overview?.total_calls?.toLocaleString() || 0}</li>
                     </ul>
@@ -238,7 +245,8 @@ export default function Energy() {
                                 <th className="text-left py-3 px-4 font-semibold text-muted-foreground">Model</th>
                                 <th className="text-left py-3 px-4 font-semibold text-muted-foreground">Tokens</th>
                                 <th className="text-left py-3 px-4 font-semibold text-muted-foreground">Latency (ms)</th>
-                                <th className="text-left py-3 px-4 font-semibold text-muted-foreground">Avg. Power (W)</th>
+                                <th className="text-left py-3 px-4 font-semibold text-muted-foreground">Energy (Wh)</th>
+                                <th className="text-left py-3 px-4 font-semibold text-muted-foreground">CO₂ (g)</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -258,12 +266,13 @@ export default function Energy() {
                                         </td>
                                         <td className="py-4 px-4 text-foreground">{row.tokens}</td>
                                         <td className="py-4 px-4 text-foreground">{row.latency_ms} ms</td>
-                                        <td className="py-4 px-4 text-foreground font-medium">{row.power_w.toFixed(1)}W</td>
+                                        <td className="py-4 px-4 text-foreground font-medium">{row.energy_wh.toFixed(2)} Wh</td>
+                                        <td className="py-4 px-4 text-foreground font-medium">{row.co2_g.toFixed(2)} g</td>
                                     </tr>
                                 ))
                             ) : (
                                 <tr>
-                                    <td colSpan={6} className="py-8 text-center text-muted-foreground">
+                                    <td colSpan={7} className="py-8 text-center text-muted-foreground">
                                         No recent activity logs found.
                                     </td>
                                 </tr>
@@ -283,13 +292,13 @@ export default function Energy() {
                     <div className="mt-4 space-y-4 text-sm text-muted-foreground">
                         <div>
                             <p className="font-medium text-foreground mb-2">Basic Energy Formula:</p>
-                            <p className="font-mono bg-muted/50 p-3 rounded">Energy (kWh) = Σ (Tokens × Energy_per_Token)</p>
-                            <p className="mt-2 text-xs">For example, GPT-4 is estimated at 0.003 Wh/token.</p>
+                            <p className="font-mono bg-muted/50 p-3 rounded">Energy (Wh) = Σ (Tokens × Energy_per_Token_Wh)</p>
+                            <p className="mt-2 text-xs">For example, GPT-4 is estimated at 0.048 Wh/1k tokens.</p>
                         </div>
                         <div>
                             <p className="font-medium text-foreground mb-2">Real-Time Calculation:</p>
                             <p className="font-mono bg-muted/50 p-3 rounded">
-                                {`Total kWh = (${(totalKWh * 1000).toFixed(0)} Wh) / 1000 = ${totalKWh.toFixed(2)} kWh`}
+                                {`Total Wh = ${totalWh.toFixed(2)} Wh`}
                             </p>
                         </div>
                         <div>

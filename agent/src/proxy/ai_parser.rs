@@ -232,16 +232,25 @@ pub fn is_ai_completion_endpoint(path: &str) -> bool {
         || path.contains("/sentinel/") // ChatGPT sentinel/requirements
         || path.contains("/jserror")  // Gemini JS errors
         || path.contains("/cspreport") // Gemini CSP reports
-        || path.contains("/batchexecute") { // Gemini batch operations
+        || path.contains("/batchexecute") // Gemini batch operations
+        || path.contains("/sentry")   // Claude error reporting
+        || path.contains("/title")    // Claude conversation title
+        || path.contains("/artifacts") // Claude artifacts
+        || path.contains("/wiggle")   // Claude file operations
+        || path.contains("/feature_settings") // Claude settings
+        || path.contains("/projects") // Claude projects list
+        || path.contains("/notification") // Claude notifications
+        || path.contains("/sync/") {  // Claude sync operations
         return false;
     }
 
     // Only match specific conversation endpoints with actual prompts
     path.contains("/chat/completions") 
         || path.contains("/completions")
-        || path.contains("/v1/messages")  // Anthropic
+        || path.contains("/v1/messages")  // Anthropic API
         || path.contains("/backend-api/f/conversation")  // ChatGPT main prompt endpoint
         || path.contains("/backend-api/conversation/")   // ChatGPT conversation with UUID
         || path.contains("/api/chat")     // Generic chat API
         || path.contains("/StreamGenerate") // Gemini prompt endpoint
+        || path.contains("/completion")   // Claude prompt endpoint
 }

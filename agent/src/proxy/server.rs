@@ -243,14 +243,15 @@ async fn proxy_request(
     let mut request_data = None;
 
     // Log intercepted requests for AI services to diagnose filtering
-    if provider.contains("chatgpt.com") || provider.contains("gemini.google.com") {
+    if provider.contains("chatgpt.com") || provider.contains("gemini.google.com") || provider.contains("claude.ai") {
         debug!("🔬 Intercepted {} request: method={}, path={}, body_len={}", 
                provider, parts.method, parts.uri.path(), body_str.len());
         
         // Log body for conversation endpoints to understand structure
         if (parts.uri.path().contains("/backend-api/f/conversation") || 
             parts.uri.path().contains("generate") || 
-            parts.uri.path().contains("stream")) && body_str.len() > 0 {
+            parts.uri.path().contains("stream") ||
+            parts.uri.path().contains("/messages")) && body_str.len() > 0 {
             debug!("📦 {} conversation body: {}", provider, &body_str.chars().take(1000).collect::<String>());
         }
     }

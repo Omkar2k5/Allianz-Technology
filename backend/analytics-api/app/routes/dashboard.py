@@ -248,20 +248,14 @@ async def get_energy_metrics(
     
     activity_data = []
     for log in recent_logs:
-        # Calculate Power (W) = Energy (Wh) / (Latency (ms) / 3,600,000)
-        power_w = 0.0
-        if log.latency_ms and log.latency_ms > 0 and log.energy_wh:
-            hours = log.latency_ms / 3600000.0
-            power_w = log.energy_wh / hours
-            
         activity_data.append({
             "timestamp": log.timestamp.isoformat(),
             "computer_name": log.computer_name or "Unknown",
             "model": log.model_name,
             "tokens": log.tokens_total,
             "latency_ms": log.latency_ms or 0,
-            "energy_wh": log.energy_wh or 0,
-            "power_w": power_w
+            "energy_wh": float(log.energy_wh or 0),
+            "co2_g": float(log.co2_g or 0)
         })
 
     return {
@@ -269,14 +263,14 @@ async def get_energy_metrics(
         "by_model": [
             {
                 "model": row.model_name,
-                "energy_wh": float(row.energy)
+                "energy_wh": float(row.energy or 0)
             }
             for row in by_model
         ],
         "daily_energy": [
             {
                 "date": str(row.date),
-                "energy_wh": float(row.energy)
+                "energy_wh": float(row.energy or 0)
             }
             for row in daily_energy
         ],
@@ -342,7 +336,7 @@ async def get_emissions_metrics(
         "by_region": [
             {
                 "region": row.region or "unknown",
-                "co2_g": float(row.co2),
+                "co2_g": float(row.co2 or 0),
                 "requests": row.requests
             }
             for row in by_region
@@ -350,7 +344,7 @@ async def get_emissions_metrics(
         "monthly_trend": [
             {
                 "month": str(row.month),
-                "co2_g": float(row.co2)
+                "co2_g": float(row.co2 or 0)
             }
             for row in monthly
         ]

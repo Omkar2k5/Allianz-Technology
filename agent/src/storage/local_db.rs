@@ -39,6 +39,34 @@ impl LocalCache {
         self.conn.lock().unwrap()
     }
     
+    /// Calculate energy consumption in Wh using physics-based formula
+    /// Formula: Energy (Wh) = (Node_Power_W / Batch_size) × Latency_ms × PUE / 3,600,000
+    /// 
+    /// Datacenter parameters (realistic):
+    /// - Node power: 1200W (GPU + CPU + memory)
+    /// - Batch size: 8 (concurrent requests per node)
+    /// - PUE (Power Usage Effectiveness): 1.3 (datacenter overhead)
+    fn calculate_energy_wh(_model: &str, _total_tokens: i32, latency_ms: i64) -> f64 {
+        // Datacenter parameters
+        const NODE_POWER_W: f64 = 1200.0;  // GPU + CPU + memory
+        const BATCH_SIZE: f64 = 8.0;        // Concurrent requests
+        const PUE: f64 = 1.3;               // Datacenter overhead (cooling, etc.)
+        
+        // Physics-based formula: Energy = Power × Time
+        // Energy (Wh) = (Node_Power_W / Batch_size) × Latency_ms × PUE / 3,600,000
+        let effective_power_w = NODE_POWER_W / BATCH_SIZE;
+        let latency_hours = latency_ms as f64 / 3_600_000.0;
+        
+        effective_power_w * latency_hours * PUE
+    }
+    
+    /// Calculate CO2 emissions in grams based on energy consumption
+    fn calculate_co2_g(energy_wh: f64) -> f64 {
+        // India grid carbon intensity: 750 g CO2/kWh (conservative estimate)
+        // Convert Wh to kWh and multiply by carbon intensity
+        (energy_wh / 1000.0) * 750.0
+    }
+    
     pub fn log_ai_request(
         &self,
         request_id: &str,
@@ -61,10 +89,14 @@ impl LocalCache {
         
         // Current timestamp in ISO format (SQLAlchemy/SQLite friendly)
         let timestamp = chrono::Utc::now().naive_utc().to_string();
+        
+        // Calculate energy and CO2
+        let energy_wh = Self::calculate_energy_wh(model, total_tokens, latency_ms);
+        let co2_g = Self::calculate_co2_g(energy_wh);
 
         // Note: We are writing directly to the backend's `genai_requests` table.
         // Schema keys: id, request_hash, model_name, provider, tokens_input, tokens_output, tokens_total, 
-        //              latency_ms, computer_name, timestamp, user_id (FK), created_at
+        //              latency_ms, computer_name, timestamp, user_id (FK), created_at, energy_wh, co2_g
         // Foreign keys like app_id, model_id, agent_id are left NULL as the agent doesn't have them yet.
         // user_id is passed as string (UUID)
         
@@ -73,22 +105,28 @@ impl LocalCache {
                 id, request_hash, timestamp, user_id, 
                 model_name, provider, 
                 tokens_input, tokens_output, tokens_total,
-                latency_ms, computer_name, created_at
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?3)",
+                latency_ms, computer_name, created_at,
+                energy_wh, co2_g
+            ) VALUES (?1, ?2, ?3, NULL, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?3, ?11, ?12)",
             (
                 id,             // ?1: id
                 request_id,     // ?2: request_hash (mapped from request_id)
-                timestamp,      // ?3: timestamp & created_at
-                user_id.replace("-", ""), // ?4: user_id (strip hyphens to match backend UUID format)
-                model,          // ?5: model_name
-                provider,       // ?6: provider
-                prompt_tokens,  // ?7: tokens_input
-                completion_tokens, // ?8: tokens_output
-                total_tokens,   // ?9: tokens_total
-                latency_ms,     // ?10: latency_ms
-                computer_name,  // ?11: computer_name
+                &timestamp,      // ?3: timestamp (also used for created_at)
+                // user_id is NULL (not in params)
+                model,          // ?4: model_name
+                provider,       // ?5: provider
+                prompt_tokens,  // ?6: tokens_input
+                completion_tokens, // ?7: tokens_output
+                total_tokens,   // ?8: tokens_total
+                latency_ms,     // ?9: latency_ms
+                computer_name,  // ?10: computer_name
+                energy_wh,      // ?11: energy_wh
+                co2_g,          // ?12: co2_g
             ),
         )?;
+        
+        info!("✅ Logged AI request to database: model={}, tokens={}, energy={:.2}Wh, co2={:.2}g", 
+              model, total_tokens, energy_wh, co2_g);
         
         Ok(())
     }
