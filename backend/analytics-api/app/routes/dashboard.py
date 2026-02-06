@@ -146,7 +146,11 @@ async def get_usage_metrics(
     model_dist = db.query(
         models.GenAIRequest.model_name,
         func.count(models.GenAIRequest.id).label('calls'),
-        func.sum(models.GenAIRequest.tokens_total).label('tokens')
+        func.sum(models.GenAIRequest.tokens_total).label('tokens'),
+        func.sum(models.GenAIRequest.tokens_input).label('tokens_input'),
+        func.sum(models.GenAIRequest.tokens_output).label('tokens_output'),
+        func.avg(models.GenAIRequest.latency_ms).label('avg_latency'),
+        func.sum(models.GenAIRequest.cost_usd).label('cost_usd')
     ).filter(
         models.GenAIRequest.timestamp >= start_date,
         models.GenAIRequest.timestamp <= end_date
@@ -170,7 +174,11 @@ async def get_usage_metrics(
             {
                 "model": row.model_name,
                 "calls": row.calls,
-                "tokens": row.tokens
+                "tokens": row.tokens,
+                "tokens_input": row.tokens_input or 0,
+                "tokens_output": row.tokens_output or 0,
+                "avg_latency": float(row.avg_latency or 0),
+                "cost_usd": float(row.cost_usd or 0)
             }
             for row in model_dist
         ]
@@ -215,6 +223,47 @@ async def get_energy_metrics(
     
     by_model = by_model.group_by(models.GenAIRequest.model_name).all()
     
+    # Daily energy trend
+    daily_energy = db.query(
+        func.date(models.GenAIRequest.timestamp).label('date'),
+        func.sum(models.GenAIRequest.energy_wh).label('energy')
+    ).filter(
+        models.GenAIRequest.timestamp >= start_date,
+        models.GenAIRequest.timestamp <= end_date
+    )
+    
+    if app_id:
+        daily_energy = daily_energy.filter(models.GenAIRequest.app_id == app_id)
+    
+    daily_energy = daily_energy.group_by(func.date(models.GenAIRequest.timestamp)).all()
+    
+    # Recent activity logs (for granular table)
+    recent_logs = db.query(models.GenAIRequest).filter(
+        models.GenAIRequest.timestamp >= start_date
+    )
+    if app_id:
+        recent_logs = recent_logs.filter(models.GenAIRequest.app_id == app_id)
+        
+    recent_logs = recent_logs.order_by(models.GenAIRequest.timestamp.desc()).limit(50).all()
+    
+    activity_data = []
+    for log in recent_logs:
+        # Calculate Power (W) = Energy (Wh) / (Latency (ms) / 3,600,000)
+        power_w = 0.0
+        if log.latency_ms and log.latency_ms > 0 and log.energy_wh:
+            hours = log.latency_ms / 3600000.0
+            power_w = log.energy_wh / hours
+            
+        activity_data.append({
+            "timestamp": log.timestamp.isoformat(),
+            "computer_name": log.computer_name or "Unknown",
+            "model": log.model_name,
+            "tokens": log.tokens_total,
+            "latency_ms": log.latency_ms or 0,
+            "energy_wh": log.energy_wh or 0,
+            "power_w": power_w
+        })
+
     return {
         "total_energy_wh": float(total.total_energy or 0),
         "by_model": [
@@ -223,7 +272,15 @@ async def get_energy_metrics(
                 "energy_wh": float(row.energy)
             }
             for row in by_model
-        ]
+        ],
+        "daily_energy": [
+            {
+                "date": str(row.date),
+                "energy_wh": float(row.energy)
+            }
+            for row in daily_energy
+        ],
+        "recent_activity": activity_data
     }
 
 

@@ -55,7 +55,7 @@ class UserResponse(BaseModel):
     first_name: str
     last_name: str
     role: str
-    team_id: str
+    team_id: Optional[str] = None
     team_name: Optional[str] = None
     is_active: bool
     last_login: Optional[datetime] = None

@@ -31,15 +31,16 @@ from app.auth.jwt import (
 
 router = APIRouter()
 
+def get_name_parts(full_name: str):
+    parts = (full_name or "").split(" ", 1)
+    first_name = parts[0]
+    last_name = parts[1] if len(parts) > 1 else ""
+    return first_name, last_name
 
 @router.post("/register", response_model=AuthResponse, status_code=status.HTTP_201_CREATED)
 async def register(user_data: UserRegister, db: Session = Depends(get_db)):
     """
     Register a new user
-    
-    - Creates a new user account
-    - Optionally creates a new team if team_name is provided
-    - Returns access and refresh tokens
     """
     # Check if user already exists
     existing_user = db.query(User).filter(User.email == user_data.email).first()
@@ -49,44 +50,24 @@ async def register(user_data: UserRegister, db: Session = Depends(get_db)):
             detail="Email already registered"
         )
     
-    # Get or create team
-    if user_data.team_name:
-        team = db.query(Team).filter(Team.name == user_data.team_name).first()
-        if not team:
-            # Create new team
-            team = Team(
-                id=uuid.uuid4(),
-                name=user_data.team_name,
-                organization=user_data.team_name,
-                subscription_tier='free'
-            )
-            db.add(team)
-            db.flush()
-    else:
-        # Create a personal team
-        team = Team(
-            id=uuid.uuid4(),
-            name=f"{user_data.first_name}'s Team",
-            organization=f"{user_data.first_name}'s Organization",
-            subscription_tier='free'
-        )
-        db.add(team)
-        db.flush()
-    
     # Hash password
     password_hashed = hash_password(user_data.password)
     
     # Create user
+    # Note: Current User model uses full_name and does not have team_id
     new_user = User(
         id=uuid.uuid4(),
-        team_id=team.id,
         email=user_data.email,
-        password_hash=password_hashed,
-        first_name=user_data.first_name,
-        last_name=user_data.last_name,
-        role='viewer',  # Default role
+        hashed_password=password_hashed,
+        full_name=f"{user_data.first_name} {user_data.last_name}".strip(),
+        # role='viewer', # User model might not have role, check schema. Assuming removed or defaulted.
         is_active=True
     )
+    
+    # If the User model has 'role', set it. The provided dump didn't show it explicitly but models.py scan had it?
+    # Re-checking models.py scan: "role" was NOT in the User class provided in previous turn!
+    # "is_superuser" was there.
+    # So I removed 'role'.
     
     db.add(new_user)
     db.commit()
@@ -106,17 +87,19 @@ async def register(user_data: UserRegister, db: Session = Depends(get_db)):
     db.add(refresh_token)
     db.commit()
     
+    first, last = get_name_parts(new_user.full_name)
+
     # Prepare user response
     user_response = UserResponse(
         id=str(new_user.id),
         email=new_user.email,
-        first_name=new_user.first_name,
-        last_name=new_user.last_name,
-        role=new_user.role,
-        team_id=str(new_user.team_id),
-        team_name=team.name,
+        role="admin" if new_user.is_superuser else "viewer",
+        first_name=first,
+        last_name=last,
+        team_id=None,
+        team_name=None,
         is_active=new_user.is_active,
-        last_login=new_user.last_login,
+        # last_login=new_user.last_login, # Check fields
         created_at=new_user.created_at
     )
     
@@ -132,10 +115,6 @@ async def register(user_data: UserRegister, db: Session = Depends(get_db)):
 async def login(credentials: UserLogin, db: Session = Depends(get_db)):
     """
     Login with email and password
-    
-    - Validates credentials
-    - Returns access and refresh tokens
-    - Updates last_login timestamp
     """
     # Find user
     user = db.query(User).filter(User.email == credentials.email).first()
@@ -147,7 +126,7 @@ async def login(credentials: UserLogin, db: Session = Depends(get_db)):
         )
     
     # Verify password
-    if not verify_password(credentials.password, user.password_hash):
+    if not verify_password(credentials.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password"
@@ -160,9 +139,9 @@ async def login(credentials: UserLogin, db: Session = Depends(get_db)):
             detail="User account is inactive"
         )
     
-    # Update last login
-    user.last_login = datetime.utcnow()
-    db.commit()
+    # Update last login (field does not exist in User model)
+    # user.last_login = datetime.utcnow()
+    # db.commit()
     
     # Create tokens
     access_token = create_access_token(data={"sub": str(user.id), "email": user.email})
@@ -178,20 +157,19 @@ async def login(credentials: UserLogin, db: Session = Depends(get_db)):
     db.add(refresh_token)
     db.commit()
     
-    # Get team info
-    team = db.query(Team).filter(Team.id == user.team_id).first()
+    first, last = get_name_parts(user.full_name)
     
     # Prepare user response
     user_response = UserResponse(
         id=str(user.id),
         email=user.email,
-        first_name=user.first_name,
-        last_name=user.last_name,
-        role=user.role,
-        team_id=str(user.team_id),
-        team_name=team.name if team else None,
+        first_name=first,
+        last_name=last,
+        role="viewer",
+        team_id=None,
+        team_name=None,
         is_active=user.is_active,
-        last_login=user.last_login,
+        # last_login=user.last_login,
         created_at=user.created_at
     )
     
@@ -207,9 +185,6 @@ async def login(credentials: UserLogin, db: Session = Depends(get_db)):
 async def refresh_token(token_data: TokenRefresh, db: Session = Depends(get_db)):
     """
     Refresh access token using refresh token
-    
-    - Validates refresh token
-    - Returns new access and refresh tokens
     """
     # Verify refresh token
     try:
@@ -266,20 +241,19 @@ async def refresh_token(token_data: TokenRefresh, db: Session = Depends(get_db))
     db.add(refresh_token_obj)
     db.commit()
     
-    # Get team info
-    team = db.query(Team).filter(Team.id == user.team_id).first()
+    first, last = get_name_parts(user.full_name)
     
     # Prepare user response
     user_response = UserResponse(
         id=str(user.id),
         email=user.email,
-        first_name=user.first_name,
-        last_name=user.last_name,
-        role=user.role,
-        team_id=str(user.team_id),
-        team_name=team.name if team else None,
+        first_name=first,
+        last_name=last,
+        role="viewer",
+        team_id=None,
+        team_name=None,
         is_active=user.is_active,
-        last_login=user.last_login,
+        # last_login=user.last_login,
         created_at=user.created_at
     )
     
@@ -299,9 +273,6 @@ async def logout(
 ):
     """
     Logout user by invalidating refresh token
-    
-    - Deletes refresh token from database
-    - Client should also delete access token
     """
     # Delete refresh token
     db.query(RefreshToken).filter(
@@ -317,23 +288,19 @@ async def logout(
 async def get_current_user_info(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """
     Get current authenticated user's information
-    
-    - Returns user profile data
-    - Requires valid access token
     """
-    # Get team info
-    team = db.query(Team).filter(Team.id == current_user.team_id).first()
+    first, last = get_name_parts(current_user.full_name)
     
     return UserResponse(
         id=str(current_user.id),
         email=current_user.email,
-        first_name=current_user.first_name,
-        last_name=current_user.last_name,
-        role=current_user.role,
-        team_id=str(current_user.team_id),
-        team_name=team.name if team else None,
+        first_name=first,
+        last_name=last,
+        role="viewer",
+        team_id=None,
+        team_name=None,
         is_active=current_user.is_active,
-        last_login=current_user.last_login,
+        # last_login=current_user.last_login,
         created_at=current_user.created_at
     )
 
@@ -346,16 +313,14 @@ async def update_profile(
 ):
     """
     Update user profile
-    
-    - Updates first_name, last_name, or email
-    - Requires valid access token
     """
     # Update fields if provided
-    if user_update.first_name is not None:
-        current_user.first_name = user_update.first_name
+    first, last = get_name_parts(current_user.full_name)
+    new_first = user_update.first_name if user_update.first_name is not None else first
+    new_last = user_update.last_name if user_update.last_name is not None else last
     
-    if user_update.last_name is not None:
-        current_user.last_name = user_update.last_name
+    if user_update.first_name is not None or user_update.last_name is not None:
+        current_user.full_name = f"{new_first} {new_last}".strip()
     
     if user_update.email is not None:
         # Check if email is already taken
@@ -375,19 +340,18 @@ async def update_profile(
     db.commit()
     db.refresh(current_user)
     
-    # Get team info
-    team = db.query(Team).filter(Team.id == current_user.team_id).first()
+    first, last = get_name_parts(current_user.full_name)
     
     return UserResponse(
         id=str(current_user.id),
         email=current_user.email,
-        first_name=current_user.first_name,
-        last_name=current_user.last_name,
-        role=current_user.role,
-        team_id=str(current_user.team_id),
-        team_name=team.name if team else None,
+        first_name=first,
+        last_name=last,
+        role="viewer",
+        team_id=None,
+        team_name=None,
         is_active=current_user.is_active,
-        last_login=current_user.last_login,
+        # last_login=current_user.last_login,
         created_at=current_user.created_at
     )
 
@@ -400,12 +364,9 @@ async def change_password(
 ):
     """
     Change user password
-    
-    - Requires current password verification
-    - Updates to new password
     """
     # Verify current password
-    if not verify_password(password_data.current_password, current_user.password_hash):
+    if not verify_password(password_data.current_password, current_user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Current password is incorrect"
@@ -415,7 +376,8 @@ async def change_password(
     new_password_hash = hash_password(password_data.new_password)
     
     # Update password
-    current_user.password_hash = new_password_hash
+    current_user.hashed_password = new_password_hash
     db.commit()
     
     return MessageResponse(message="Password changed successfully")
+

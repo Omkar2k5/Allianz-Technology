@@ -46,6 +46,10 @@ class ModelDistribution(BaseModel):
     model: str
     calls: int
     tokens: int
+    tokens_input: Optional[int] = 0
+    tokens_output: Optional[int] = 0
+    avg_latency: Optional[float] = 0
+    cost_usd: Optional[float] = 0
 
 
 class UsageMetrics(BaseModel):
@@ -59,9 +63,26 @@ class EnergyByModel(BaseModel):
     energy_wh: float
 
 
+class DailyEnergy(BaseModel):
+    date: str
+    energy_wh: float
+
+
+class ActivityLog(BaseModel):
+    timestamp: str
+    computer_name: Optional[str] = "Unknown"
+    model: str
+    tokens: int
+    latency_ms: int
+    energy_wh: float
+    power_w: float
+
+
 class EnergyMetrics(BaseModel):
     total_energy_wh: float
     by_model: List[EnergyByModel]
+    daily_energy: List[DailyEnergy]
+    recent_activity: List[ActivityLog]
 
 
 # Emissions Schemas
