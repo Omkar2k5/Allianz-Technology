@@ -335,7 +335,7 @@ async fn proxy_request(
                     resp_data.total_tokens,
                     latency,
                     Some(&server_ip),
-                ) {
+                ).await {
                     error!("❌ Failed to log AI request: {}", e);
                 } else {
                     info!("📝 Logged AI Request: {} ({} tokens)", req_data.model, resp_data.total_tokens);
@@ -357,7 +357,7 @@ async fn proxy_request(
                     estimated_total,
                     latency,
                     Some(&server_ip),
-                ) {
+                ).await {
                     error!("❌ Failed to log AI request (fallback): {}", e);
                 }
             }

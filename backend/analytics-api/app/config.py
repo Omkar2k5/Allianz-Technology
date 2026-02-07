@@ -19,7 +19,7 @@ class Settings(BaseSettings):
     API_LOG_LEVEL: str = "info"
     
     # Database
-    DATABASE_URL: str = "postgresql://postgres:123456@localhost:5432/ecocompute"
+    DATABASE_URL: str = "postgresql://postgres:omkar9211@localhost:5432/ecocompute"
     
     # Authentication
     JWT_SECRET: str = "your-secret-key-change-in-production"
@@ -44,6 +44,7 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         case_sensitive = True
+        extra = "ignore"
 
 
 settings = Settings()

@@ -48,8 +48,8 @@ async fn run() -> Result<()> {
     let config = config::load_config()?;
     info!("✅ Configuration loaded");
 
-    // Initialize local database
-    let db = Arc::new(storage::LocalCache::new(&config.db_path)?);
+    // Initialize PostgreSQL database connection
+    let db = Arc::new(storage::LocalCache::new(&config.db_url).await?);
     info!("✅ Local database initialized");
 
     // Authenticate user

@@ -32,17 +32,23 @@ struct LoginRequest {
 struct RegisterRequest {
     email: String,
     password: String,
-    name: String,
+    first_name: String,
+    last_name: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 struct AuthResponse {
-    user_id: String,
-    email: String,
-    jwt_token: String,
-    refresh_token: Option<String>,
-    expires_in: i64, // seconds
+    access_token: String,
+    refresh_token: String,
+    user: UserResponse,
 }
+
+#[derive(Debug, Serialize, Deserialize)]
+struct UserResponse {
+    id: String,
+    email: String,
+}
+
 
 pub async fn authenticate(config: &Config, db: &LocalCache) -> Result<UserSession> {
     // Check for existing session first
@@ -90,7 +96,7 @@ async fn login(config: &Config, db: &LocalCache) -> Result<UserSession> {
         .no_proxy()
         .build()?;
     let response = client
-        .post(format!("{}/api/agent/login", config.api_url))
+        .post(format!("{}/api/v1/auth/login", config.api_url))
         .json(&LoginRequest { email: email.clone(), password })
         .send()
         .await
@@ -105,11 +111,11 @@ async fn login(config: &Config, db: &LocalCache) -> Result<UserSession> {
     let auth_response: AuthResponse = response.json().await?;
     
     let session = UserSession {
-        user_id: auth_response.user_id,
-        email: auth_response.email,
-        jwt_token: auth_response.jwt_token,
-        refresh_token: auth_response.refresh_token,
-        expires_at: Utc::now() + Duration::seconds(auth_response.expires_in),
+        user_id: auth_response.user.id,
+        email: auth_response.user.email,
+        jwt_token: auth_response.access_token,
+        refresh_token: Some(auth_response.refresh_token),
+        expires_at: Utc::now() + Duration::days(1), // Default 1 day
     };
 
     // Store session
@@ -122,8 +128,12 @@ async fn login(config: &Config, db: &LocalCache) -> Result<UserSession> {
 async fn register(config: &Config, db: &LocalCache) -> Result<UserSession> {
     println!("\n📝 Register for Eco-Compute");
     
-    let name: String = Input::new()
-        .with_prompt("Full Name")
+    let first_name: String = Input::new()
+        .with_prompt("First Name")
+        .interact_text()?;
+
+    let last_name: String = Input::new()
+        .with_prompt("Last Name")
         .interact_text()?;
 
     let email: String = Input::new()
@@ -140,8 +150,13 @@ async fn register(config: &Config, db: &LocalCache) -> Result<UserSession> {
         .no_proxy()
         .build()?;
     let response = client
-        .post(format!("{}/api/agent/register", config.api_url))
-        .json(&RegisterRequest { email: email.clone(), password, name })
+        .post(format!("{}/api/v1/auth/register", config.api_url))
+        .json(&RegisterRequest { 
+            email: email.clone(), 
+            password, 
+            first_name,
+            last_name
+        })
         .send()
         .await
         .context("Failed to connect to backend")?;
@@ -155,11 +170,11 @@ async fn register(config: &Config, db: &LocalCache) -> Result<UserSession> {
     let auth_response: AuthResponse = response.json().await?;
     
     let session = UserSession {
-        user_id: auth_response.user_id,
-        email: auth_response.email,
-        jwt_token: auth_response.jwt_token,
-        refresh_token: auth_response.refresh_token,
-        expires_at: Utc::now() + Duration::seconds(auth_response.expires_in),
+        user_id: auth_response.user.id,
+        email: auth_response.user.email,
+        jwt_token: auth_response.access_token,
+        refresh_token: Some(auth_response.refresh_token),
+        expires_at: Utc::now() + Duration::days(1), // Default 1 day
     };
 
     // Store session
@@ -169,59 +184,20 @@ async fn register(config: &Config, db: &LocalCache) -> Result<UserSession> {
     Ok(session)
 }
 
-pub fn get_stored_session(db: &LocalCache) -> Result<Option<UserSession>> {
-    let conn = db.get_connection();
-    
-    let mut stmt = conn.prepare(
-        "SELECT user_id, email, jwt_token, refresh_token, expires_at 
-         FROM user_session 
-         ORDER BY id DESC 
-         LIMIT 1"
-    )?;
-
-    let session = stmt.query_row([], |row| {
-        Ok(UserSession {
-            user_id: row.get(0)?,
-            email: row.get(1)?,
-            jwt_token: row.get(2)?,
-            refresh_token: row.get(3)?,
-            expires_at: row.get::<_, String>(4)?
-                .parse::<DateTime<Utc>>()
-                .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?,
-        })
-    });
-
-    match session {
-        Ok(s) => Ok(Some(s)),
-        Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
-        Err(e) => Err(e.into()),
-    }
+pub fn get_stored_session(_db: &LocalCache) -> Result<Option<UserSession>> {
+    // TODO: Implement PostgreSQL session storage
+    // For now, always return None to force re-authentication
+    Ok(None)
 }
 
-pub fn store_session(db: &LocalCache, session: &UserSession) -> Result<()> {
-    let conn = db.get_connection();
-    
-    // Clear old sessions
-    conn.execute("DELETE FROM user_session", [])?;
-    
-    // Insert new session
-    conn.execute(
-        "INSERT INTO user_session (user_id, email, jwt_token, refresh_token, expires_at) 
-         VALUES (?1, ?2, ?3, ?4, ?5)",
-        (
-            &session.user_id,
-            &session.email,
-            &session.jwt_token,
-            &session.refresh_token,
-            session.expires_at.to_rfc3339(),
-        ),
-    )?;
 
+pub fn store_session(_db: &LocalCache, _session: &UserSession) -> Result<()> {
+    // TODO: Implement PostgreSQL session storage
+    // For now, skip session storage
     Ok(())
 }
 
-pub fn clear_session(db: &LocalCache) -> Result<()> {
-    let conn = db.get_connection();
-    conn.execute("DELETE FROM user_session", [])?;
+pub fn clear_session(_db: &LocalCache) -> Result<()> {
+    // TODO: Implement PostgreSQL session storage
     Ok(())
 }

@@ -49,7 +49,6 @@ class ModelDistribution(BaseModel):
     tokens_input: Optional[int] = 0
     tokens_output: Optional[int] = 0
     avg_latency: Optional[float] = 0
-    cost_usd: Optional[float] = 0
 
 
 class UsageMetrics(BaseModel):

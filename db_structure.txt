@@ -1,0 +1,42 @@
+Columns in genai_requests:
+Column: id, Type: uuid, Nullable: NO
+Column: app_id, Type: uuid, Nullable: YES
+Column: model_id, Type: uuid, Nullable: YES
+Column: user_id, Type: uuid, Nullable: YES
+Column: agent_id, Type: uuid, Nullable: YES
+Column: timestamp, Type: timestamp without time zone, Nullable: NO
+Column: request_hash, Type: character varying, Nullable: NO
+Column: computer_name, Type: character varying, Nullable: YES
+Column: process_name, Type: character varying, Nullable: YES
+Column: model_name, Type: character varying, Nullable: NO
+Column: provider, Type: character varying, Nullable: NO
+Column: tokens_input, Type: integer, Nullable: NO
+Column: tokens_output, Type: integer, Nullable: NO
+Column: tokens_total, Type: integer, Nullable: NO
+Column: energy_wh, Type: double precision, Nullable: YES
+Column: co2_g, Type: double precision, Nullable: YES
+Column: region, Type: character varying, Nullable: YES
+Column: carbon_intensity, Type: double precision, Nullable: YES
+Column: latency_ms, Type: integer, Nullable: YES
+Column: use_case, Type: character varying, Nullable: YES
+Column: risk_level, Type: character varying, Nullable: YES
+Column: policy_applied, Type: boolean, Nullable: YES
+Column: policy_action, Type: character varying, Nullable: YES
+Column: cost_usd, Type: double precision, Nullable: YES
+Column: meta_data, Type: jsonb, Nullable: YES
+Column: created_at, Type: timestamp without time zone, Nullable: YES
+
+Constraints:
+('genai_requests_agent_id_fkey', 'FOREIGN KEY (agent_id) REFERENCES agents(id)')
+('genai_requests_app_id_fkey', 'FOREIGN KEY (app_id) REFERENCES apps(id) ON DELETE CASCADE')
+('genai_requests_id_not_null', 'NOT NULL id')
+('genai_requests_model_id_fkey', 'FOREIGN KEY (model_id) REFERENCES models(id)')
+('genai_requests_model_name_not_null', 'NOT NULL model_name')
+('genai_requests_pkey', 'PRIMARY KEY (id)')
+('genai_requests_provider_not_null', 'NOT NULL provider')
+('genai_requests_request_hash_not_null', 'NOT NULL request_hash')
+('genai_requests_timestamp_not_null', 'NOT NULL "timestamp"')
+('genai_requests_tokens_input_not_null', 'NOT NULL tokens_input')
+('genai_requests_tokens_output_not_null', 'NOT NULL tokens_output')
+('genai_requests_tokens_total_not_null', 'NOT NULL tokens_total')
+('genai_requests_user_id_fkey', 'FOREIGN KEY (user_id) REFERENCES users(id)')

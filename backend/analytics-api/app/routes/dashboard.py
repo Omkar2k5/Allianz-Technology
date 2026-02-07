@@ -19,7 +19,6 @@ logger = logging.getLogger(__name__)
 
 @router.get("/overview", response_model=DashboardOverview)
 async def get_dashboard_overview(
-    app_id: Optional[str] = Query(None, description="Filter by app ID"),
     days: int = Query(7, ge=1, le=365, description="Number of days to analyze"),
     db: Session = Depends(get_db)
 ):
@@ -45,9 +44,6 @@ async def get_dashboard_overview(
         models.GenAIRequest.timestamp <= end_date
     )
     
-    if app_id:
-        query = query.filter(models.GenAIRequest.app_id == app_id)
-    
     # Aggregate metrics
     metrics = query.with_entities(
         func.count(models.GenAIRequest.id).label('total_calls'),
@@ -63,9 +59,6 @@ async def get_dashboard_overview(
         models.GenAIRequest.timestamp >= prev_start,
         models.GenAIRequest.timestamp < start_date
     )
-    
-    if app_id:
-        prev_query = prev_query.filter(models.GenAIRequest.app_id == app_id)
     
     prev_metrics = prev_query.with_entities(
         func.count(models.GenAIRequest.id).label('total_calls')
@@ -90,7 +83,6 @@ async def get_dashboard_overview(
 
 @router.get("/usage", response_model=UsageMetrics)
 async def get_usage_metrics(
-    app_id: Optional[str] = Query(None),
     days: int = Query(7, ge=1, le=365),
     db: Session = Depends(get_db)
 ):
@@ -101,7 +93,7 @@ async def get_usage_metrics(
     
     # Daily usage trend
     daily_usage = db.query(
-        func.date(models.GenAIRequest.timestamp).label('date'),
+        func.to_char(models.GenAIRequest.timestamp, 'YYYY-MM-DD').label('date'),
         func.count(models.GenAIRequest.id).label('calls'),
         func.sum(models.GenAIRequest.tokens_total).label('tokens')
     ).filter(
@@ -109,10 +101,7 @@ async def get_usage_metrics(
         models.GenAIRequest.timestamp <= end_date
     )
     
-    if app_id:
-        daily_usage = daily_usage.filter(models.GenAIRequest.app_id == app_id)
-    
-    daily_usage = daily_usage.group_by(func.date(models.GenAIRequest.timestamp)).all()
+    daily_usage = daily_usage.group_by(func.to_char(models.GenAIRequest.timestamp, 'YYYY-MM-DD')).all()
     
     # Model distribution
     model_dist = db.query(
@@ -121,15 +110,11 @@ async def get_usage_metrics(
         func.sum(models.GenAIRequest.tokens_total).label('tokens'),
         func.sum(models.GenAIRequest.tokens_input).label('tokens_input'),
         func.sum(models.GenAIRequest.tokens_output).label('tokens_output'),
-        func.avg(models.GenAIRequest.latency_ms).label('avg_latency'),
-        func.sum(models.GenAIRequest.cost_usd).label('cost_usd')
+        func.avg(models.GenAIRequest.latency_ms).label('avg_latency')
     ).filter(
         models.GenAIRequest.timestamp >= start_date,
         models.GenAIRequest.timestamp <= end_date
     )
-    
-    if app_id:
-        model_dist = model_dist.filter(models.GenAIRequest.app_id == app_id)
     
     model_dist = model_dist.group_by(models.GenAIRequest.model_name).all()
     
@@ -149,8 +134,7 @@ async def get_usage_metrics(
                 "tokens": row.tokens,
                 "tokens_input": row.tokens_input or 0,
                 "tokens_output": row.tokens_output or 0,
-                "avg_latency": float(row.avg_latency or 0),
-                "cost_usd": float(row.cost_usd or 0)
+                "avg_latency": float(row.avg_latency or 0)
             }
             for row in model_dist
         ]
@@ -159,7 +143,6 @@ async def get_usage_metrics(
 
 @router.get("/energy", response_model=EnergyMetrics)
 async def get_energy_metrics(
-    app_id: Optional[str] = Query(None),
     days: int = Query(30, ge=1, le=365),
     db: Session = Depends(get_db)
 ):
@@ -176,9 +159,6 @@ async def get_energy_metrics(
         models.GenAIRequest.timestamp <= end_date
     )
     
-    if app_id:
-        total = total.filter(models.GenAIRequest.app_id == app_id)
-    
     total = total.first()
     
     # Energy by model
@@ -190,31 +170,23 @@ async def get_energy_metrics(
         models.GenAIRequest.timestamp <= end_date
     )
     
-    if app_id:
-        by_model = by_model.filter(models.GenAIRequest.app_id == app_id)
-    
     by_model = by_model.group_by(models.GenAIRequest.model_name).all()
     
     # Daily energy trend
     daily_energy = db.query(
-        func.date(models.GenAIRequest.timestamp).label('date'),
+        func.to_char(models.GenAIRequest.timestamp, 'YYYY-MM-DD').label('date'),
         func.sum(models.GenAIRequest.energy_wh).label('energy')
     ).filter(
         models.GenAIRequest.timestamp >= start_date,
         models.GenAIRequest.timestamp <= end_date
     )
     
-    if app_id:
-        daily_energy = daily_energy.filter(models.GenAIRequest.app_id == app_id)
-    
-    daily_energy = daily_energy.group_by(func.date(models.GenAIRequest.timestamp)).all()
+    daily_energy = daily_energy.group_by(func.to_char(models.GenAIRequest.timestamp, 'YYYY-MM-DD')).all()
     
     # Recent activity logs (for granular table)
     recent_logs = db.query(models.GenAIRequest).filter(
         models.GenAIRequest.timestamp >= start_date
     )
-    if app_id:
-        recent_logs = recent_logs.filter(models.GenAIRequest.app_id == app_id)
         
     recent_logs = recent_logs.order_by(models.GenAIRequest.timestamp.desc()).limit(50).all()
     
@@ -252,7 +224,6 @@ async def get_energy_metrics(
 
 @router.get("/emissions", response_model=EmissionsMetrics)
 async def get_emissions_metrics(
-    app_id: Optional[str] = Query(None),
     days: int = Query(30, ge=1, le=365),
     db: Session = Depends(get_db)
 ):
@@ -269,9 +240,6 @@ async def get_emissions_metrics(
         models.GenAIRequest.timestamp <= end_date
     )
     
-    if app_id:
-        total = total.filter(models.GenAIRequest.app_id == app_id)
-    
     total = total.first()
     
     # CO2 by region
@@ -284,25 +252,19 @@ async def get_emissions_metrics(
         models.GenAIRequest.timestamp <= end_date
     )
     
-    if app_id:
-        by_region = by_region.filter(models.GenAIRequest.app_id == app_id)
-    
     by_region = by_region.group_by(models.GenAIRequest.region).all()
     
     # Monthly trend
-    # Use SQLite strftime for month truncation (yyyy-mm)
+    # Use Postgres to_char for month truncation (yyyy-mm)
     monthly = db.query(
-        func.strftime('%Y-%m', models.GenAIRequest.timestamp).label('month'),
+        func.to_char(models.GenAIRequest.timestamp, 'YYYY-MM').label('month'),
         func.sum(models.GenAIRequest.co2_g).label('co2')
     ).filter(
         models.GenAIRequest.timestamp >= start_date,
         models.GenAIRequest.timestamp <= end_date
     )
     
-    if app_id:
-        monthly = monthly.filter(models.GenAIRequest.app_id == app_id)
-    
-    monthly = monthly.group_by(func.strftime('%Y-%m', models.GenAIRequest.timestamp)).all()
+    monthly = monthly.group_by(func.to_char(models.GenAIRequest.timestamp, 'YYYY-MM')).all()
     
     return {
         "total_co2_g": float(total.total_co2 or 0),

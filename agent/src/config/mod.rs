@@ -16,7 +16,7 @@ pub struct Config {
     pub api_key: Option<String>,
     
     // Storage
-    pub db_path: String,
+    pub db_url: String,
     
     // Sync settings
     pub sync_interval_secs: u64,
@@ -32,7 +32,7 @@ impl Default for Config {
             agent_id: None,
             api_key: None,
             // Use absolute path to avoid relative path resolution issues
-            db_path: "C:/Projects/Allianz Technology/backend/analytics-api/ecocompute.db".to_string(),
+            db_url: "postgresql://postgres:omkar9211@localhost:5432/ecocompute".to_string(),
             sync_interval_secs: 300, // 5 minutes
             batch_size: 100,
         }

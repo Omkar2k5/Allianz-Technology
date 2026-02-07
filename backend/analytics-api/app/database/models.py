@@ -43,7 +43,6 @@ class GenAIRequest(Base):
     __tablename__ = "genai_requests"
     
     id = Column(Uuid, primary_key=True, default=uuid.uuid4)
-    app_id = Column(Uuid, ForeignKey('apps.id', ondelete='CASCADE'))
     user_id = Column(Uuid, ForeignKey('users.id'))
     
     timestamp = Column(DateTime, nullable=False, default=datetime.utcnow)
@@ -51,7 +50,6 @@ class GenAIRequest(Base):
     
     # Agent-specific metadata
     computer_name = Column(String(255))  # NEW
-    process_name = Column(String(255))   # NEW
     
     model_name = Column(String(100), nullable=False)
     provider = Column(String(50), nullable=False)
@@ -64,18 +62,11 @@ class GenAIRequest(Base):
     co2_g = Column(Float)
     
     region = Column(String(50))
-    carbon_intensity = Column(Float)
     
     latency_ms = Column(Integer)
     
-    use_case = Column(String(100))
-    risk_level = Column(String(20))
-    
     policy_applied = Column(Boolean, default=False)
-    policy_action = Column(String(50))
     
-    cost_usd = Column(Float)
-    cost_usd = Column(Float)
     meta_data = Column(JSON)
     
     created_at = Column(DateTime, default=datetime.utcnow)

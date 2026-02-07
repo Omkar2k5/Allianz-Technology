@@ -9,7 +9,7 @@ try:
         dbname='postgres',
         user='postgres',
         host='localhost',
-        password='123456'
+        password='omkar9211'
     )
     con.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
     cur = con.cursor()
@@ -38,7 +38,7 @@ try:
         dbname='ecocompute',
         user='postgres',
         host='localhost',
-        password='123456'
+        password='omkar9211'
     )
     cur = con.cursor()
     

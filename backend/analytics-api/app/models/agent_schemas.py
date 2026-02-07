@@ -46,7 +46,6 @@ class AIRequestLog(BaseModel):
     timestamp: datetime
     user_name: str
     computer_name: str
-    process_name: Optional[str]
     
     provider: str  # openai, anthropic, etc.
     endpoint: str  # /v1/chat/completions
@@ -56,7 +55,6 @@ class AIRequestLog(BaseModel):
     tokens_output: int
     tokens_total: int
     
-    cost_usd: float
     energy_wh: float
     co2_g: float
     
