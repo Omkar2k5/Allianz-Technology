@@ -76,16 +76,6 @@ async def get_dashboard_overview(
     if prev_metrics and prev_metrics.total_calls:
         calls_growth = ((metrics.total_calls - prev_metrics.total_calls) / prev_metrics.total_calls) * 100
     
-    # Get recent alerts
-    alerts = db.query(models.Alert).filter(
-        models.Alert.status == 'active'
-    ).order_by(desc(models.Alert.created_at)).limit(5).all()
-    
-    # Get top recommendations
-    recommendations = db.query(models.Recommendation).filter(
-        models.Recommendation.status == 'pending'
-    ).order_by(desc(models.Recommendation.estimated_co2_savings_g)).limit(3).all()
-    
     return {
         "total_calls": metrics.total_calls or 0,
         "calls_growth_percent": round(calls_growth, 1),
@@ -93,26 +83,8 @@ async def get_dashboard_overview(
         "total_co2_g": float(metrics.total_co2 or 0),
         "avg_latency_ms": int(metrics.avg_latency or 0),
         "period_days": days,
-        "alerts": [
-            {
-                "id": str(alert.id),
-                "type": alert.alert_type,
-                "severity": alert.severity,
-                "title": alert.title,
-                "message": alert.message
-            }
-            for alert in alerts
-        ],
-        "recommendations": [
-            {
-                "id": str(rec.id),
-                "type": rec.recommendation_type,
-                "title": rec.title,
-                "estimated_savings_co2_g": float(rec.estimated_co2_savings_g or 0),
-                "difficulty": rec.difficulty
-            }
-            for rec in recommendations
-        ]
+        "alerts": [],
+        "recommendations": []
     }
 
 

@@ -25,22 +25,11 @@ class User(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
-class Team(Base):
-    __tablename__ = "teams"
-    
-    id = Column(Uuid, primary_key=True, default=uuid.uuid4)
-    name = Column(String(255), nullable=False)
-    organization = Column(String(255))
-    subscription_tier = Column(String(50), default='free')
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
-
 class App(Base):
     __tablename__ = "apps"
     
     id = Column(Uuid, primary_key=True, default=uuid.uuid4)
-    team_id = Column(Uuid, ForeignKey('teams.id', ondelete='CASCADE'))
+    # team_id = Column(Uuid, ForeignKey('teams.id', ondelete='CASCADE')) # Removed team_id
     name = Column(String(255), nullable=False)
     description = Column(Text)
     environment = Column(String(50), default='production')
@@ -50,33 +39,12 @@ class App(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
-class Agent(Base):
-    """Desktop monitoring agent installed on a computer"""
-    __tablename__ = "agents"
-    
-    id = Column(Uuid, primary_key=True, default=uuid.uuid4)
-    computer_id = Column(String(255), unique=True, nullable=False)
-    computer_name = Column(String(255))
-    team_id = Column(Uuid, ForeignKey('teams.id', ondelete='CASCADE'))
-    agent_version = Column(String(50))
-    os_version = Column(String(100))
-    status = Column(String(20), default='active')
-    last_heartbeat = Column(DateTime)
-    installed_by = Column(Uuid, ForeignKey('users.id'))
-    installed_at = Column(DateTime, default=datetime.utcnow)
-    api_key_hash = Column(String(255))
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
-
 class GenAIRequest(Base):
     __tablename__ = "genai_requests"
     
     id = Column(Uuid, primary_key=True, default=uuid.uuid4)
     app_id = Column(Uuid, ForeignKey('apps.id', ondelete='CASCADE'))
-    model_id = Column(Uuid, ForeignKey('models.id'))
     user_id = Column(Uuid, ForeignKey('users.id'))
-    agent_id = Column(Uuid, ForeignKey('agents.id'))  # NEW: Agent tracking
     
     timestamp = Column(DateTime, nullable=False, default=datetime.utcnow)
     request_hash = Column(String(64), nullable=False)
@@ -113,77 +81,10 @@ class GenAIRequest(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
-class Model(Base):
-    __tablename__ = "models"
-    
-    id = Column(Uuid, primary_key=True, default=uuid.uuid4)
-    name = Column(String(100), nullable=False, unique=True)
-    provider = Column(String(50), nullable=False)
-    parameters = Column(String(50))
-    energy_per_1k_tokens = Column(Float, nullable=False)
-    co2_per_1k_tokens = Column(Float)
-    efficiency_score = Column(String(5))
-    tokens_per_sec = Column(Integer)
-    is_active = Column(Boolean, default=True)
-    is_active = Column(Boolean, default=True)
-    meta_data = Column(JSON)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
-class Alert(Base):
-    __tablename__ = "alerts"
-    
-    id = Column(Uuid, primary_key=True, default=uuid.uuid4)
-    team_id = Column(Uuid, ForeignKey('teams.id', ondelete='CASCADE'))
-    app_id = Column(Uuid, ForeignKey('apps.id', ondelete='CASCADE'))
-    
-    alert_type = Column(String(50), nullable=False)
-    severity = Column(String(20), nullable=False)
-    
-    title = Column(String(255), nullable=False)
-    message = Column(Text, nullable=False)
-    
-    metric_name = Column(String(100))
-    metric_value = Column(Float)
-    threshold_value = Column(Float)
-    
-    status = Column(String(20), default='active')
-    acknowledged_at = Column(DateTime)
-    resolved_at = Column(DateTime)
-    
-    resolved_at = Column(DateTime)
-    
-    meta_data = Column(JSON)
-    created_at = Column(DateTime, default=datetime.utcnow)
 
 
-class Recommendation(Base):
-    __tablename__ = "recommendations"
-    
-    id = Column(Uuid, primary_key=True, default=uuid.uuid4)
-    team_id = Column(Uuid, ForeignKey('teams.id', ondelete='CASCADE'))
-    app_id = Column(Uuid, ForeignKey('apps.id', ondelete='CASCADE'))
-    
-    recommendation_type = Column(String(50), nullable=False)
-    title = Column(String(255), nullable=False)
-    description = Column(Text, nullable=False)
-    
-    estimated_co2_savings_g = Column(Float)
-    estimated_cost_savings_usd = Column(Float)
-    estimated_energy_savings_wh = Column(Float)
-    
-    difficulty = Column(String(20))
-    implementation_steps = Column(Text)
-    
-    status = Column(String(20), default='pending')
-    applied_at = Column(DateTime)
-    
-    applied_at = Column(DateTime)
-    
-    meta_data = Column(JSON)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
 class RefreshToken(Base):
@@ -274,31 +175,5 @@ class DatacenterInfo(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
-class UserModelRecommendation(Base):
-    """Store personalized model recommendations for users"""
-    __tablename__ = "user_model_recommendations"
-    
-    id = Column(Uuid, primary_key=True, default=uuid.uuid4)
-    user_id = Column(Uuid, ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
-    
-    # Current usage analysis
-    current_model = Column(String(255))
-    avg_tokens_per_request = Column(Integer)
-    requests_per_day = Column(Integer)
-    current_co2_g_per_day = Column(Float)
-    current_energy_kwh_per_day = Column(Float)
-    
-    # Recommended alternative
-    recommended_model = Column(String(255))
-    projected_co2_g_per_day = Column(Float)
-    projected_energy_kwh_per_day = Column(Float)
-    
-    # Savings
-    co2_savings_percent = Column(Float)
-    energy_savings_percent = Column(Float)
-    quality_difference_percent = Column(Float)  # Negative if lower quality
-    
-    # Metadata
-    created_at = Column(DateTime, default=datetime.utcnow)
-    is_active = Column(Boolean, default=True)
+
 

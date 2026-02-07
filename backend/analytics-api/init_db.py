@@ -1,19 +1,62 @@
 
-import logging
-from app.database.connection import engine, Base
-# Import all models to ensure they are registered with Base.metadata
-from app.database.models import Team, App, Agent, GenAIRequest, Model, Alert, Recommendation, RefreshToken, User
+import psycopg2
+from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
+import os
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+# Connect to default 'postgres' database to create new db
+try:
+    con = psycopg2.connect(
+        dbname='postgres',
+        user='postgres',
+        host='localhost',
+        password='123456'
+    )
+    con.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
+    cur = con.cursor()
+    
+    # Check if database exists
+    cur.execute("SELECT 1 FROM pg_catalog.pg_database WHERE datname = 'ecocompute'")
+    exists = cur.fetchone()
+    
+    if not exists:
+        print("Creating database 'ecocompute'...")
+        cur.execute('CREATE DATABASE ecocompute')
+    else:
+        print("Database 'ecocompute' already exists.")
+        
+    cur.close()
+    con.close()
+    
+except Exception as e:
+    print(f"Error creating database: {e}")
+    exit(1)
 
-def init_db():
-    logger.info("Creating database tables...")
-    try:
-        Base.metadata.create_all(bind=engine)
-        logger.info(" Tables created successfully!")
-    except Exception as e:
-        logger.error(f"Error creating tables: {e}")
+# Connect to new database and run schema
+try:
+    print("Connecting to 'ecocompute'...")
+    con = psycopg2.connect(
+        dbname='ecocompute',
+        user='postgres',
+        host='localhost',
+        password='123456'
+    )
+    cur = con.cursor()
+    
+    # Read schema file
+    # backend/analytics-api/init_db.py -> backend/database/schema.sql
+    schema_path = os.path.join(os.path.dirname(__file__), '../database/schema.sql')
+    print(f"Applying schema from {schema_path}...")
+    
+    with open(schema_path, 'r') as f:
+        schema_sql = f.read()
+        
+    cur.execute(schema_sql)
+    con.commit()
+    print("Schema applied successfully!")
+    
+    cur.close()
+    con.close()
 
-if __name__ == "__main__":
-    init_db()
+except Exception as e:
+    print(f"Error applying schema: {e}")
+    exit(1)

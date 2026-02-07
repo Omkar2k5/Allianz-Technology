@@ -4,20 +4,21 @@
 -- Enable UUID extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- ============================================================================
--- TEAMS & MULTI-TENANCY
--- ============================================================================
-
-CREATE TABLE teams (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    name VARCHAR(255) NOT NULL,
-    organization VARCHAR(255),
-    subscription_tier VARCHAR(50) DEFAULT 'free', -- free, pro, enterprise
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
-);
-
-CREATE INDEX idx_teams_organization ON teams(organization);
+-- Drop tables if they exist (Order matters due to foreign keys)
+DROP TABLE IF EXISTS user_model_recommendations CASCADE;
+DROP TABLE IF EXISTS recommendations CASCADE;
+DROP TABLE IF EXISTS alerts CASCADE;
+DROP TABLE IF EXISTS policies CASCADE;
+DROP TABLE IF EXISTS carbon_metrics CASCADE;
+DROP TABLE IF EXISTS genai_requests CASCADE;
+DROP TABLE IF EXISTS agents CASCADE;
+DROP TABLE IF EXISTS refresh_tokens CASCADE;
+DROP TABLE IF EXISTS users CASCADE;
+DROP TABLE IF EXISTS models CASCADE;
+DROP TABLE IF EXISTS apps CASCADE;
+DROP TABLE IF EXISTS carbon_intensity_regions CASCADE;
+DROP TABLE IF EXISTS datacenter_info CASCADE;
+DROP TABLE IF EXISTS model_specs CASCADE;
 
 -- ============================================================================
 -- APPLICATIONS
@@ -25,7 +26,6 @@ CREATE INDEX idx_teams_organization ON teams(organization);
 
 CREATE TABLE apps (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    team_id UUID REFERENCES teams(id) ON DELETE CASCADE,
     name VARCHAR(255) NOT NULL,
     description TEXT,
     environment VARCHAR(50) DEFAULT 'production', -- development, staging, production
@@ -35,110 +35,36 @@ CREATE TABLE apps (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_apps_team_id ON apps(team_id);
 CREATE INDEX idx_apps_api_key_hash ON apps(api_key_hash);
 
 -- ============================================================================
--- AI MODELS CATALOG
--- ============================================================================
-
-CREATE TABLE models (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    name VARCHAR(100) NOT NULL UNIQUE,
-    provider VARCHAR(50) NOT NULL, -- openai, azure, google, anthropic
-    parameters VARCHAR(50), -- 7B, 13B, 175B, etc.
-    energy_per_1k_tokens DECIMAL(10, 6) NOT NULL, -- kWh per 1000 tokens
-    co2_per_1k_tokens DECIMAL(10, 6), -- Baseline CO2 (optional)
-    efficiency_score VARCHAR(5), -- A+, A, B, C, D
-    tokens_per_sec INTEGER,
-    is_active BOOLEAN DEFAULT true,
-    metadata JSONB, -- Additional model info
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
-);
-
-CREATE INDEX idx_models_provider ON models(provider);
-CREATE INDEX idx_models_name ON models(name);
-
--- Insert sample models
-INSERT INTO models (name, provider, parameters, energy_per_1k_tokens, efficiency_score, tokens_per_sec) VALUES
-('gpt-4', 'openai', '175B', 0.0008, 'C', 40),
-('gpt-3.5-turbo', 'openai', '175B', 0.0003, 'B', 120),
-('claude-3-opus', 'anthropic', '175B', 0.0007, 'C', 45),
-('claude-3-sonnet', 'anthropic', '70B', 0.0005, 'B', 85),
-('gemini-pro', 'google', '540B', 0.0009, 'D', 35),
-('llama-3-70b', 'meta', '70B', 0.0006, 'B', 60);
-
--- ============================================================================
--- USERS (For dashboard authentication) - MUST BE BEFORE genai_requests
+-- USERS (For dashboard authentication)
 -- ============================================================================
 
 CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    team_id UUID REFERENCES teams(id) ON DELETE CASCADE,
     
     email VARCHAR(255) NOT NULL UNIQUE,
-    password_hash VARCHAR(255) NOT NULL,
+    hashed_password VARCHAR(255) NOT NULL,
     
-    first_name VARCHAR(100),
-    last_name VARCHAR(100),
+    full_name VARCHAR(255),
+    -- first_name VARCHAR(100), -- Removed to match model
+    -- last_name VARCHAR(100), -- Removed to match model
     
-    role VARCHAR(50) DEFAULT 'viewer', -- admin, analyst, developer, viewer
+    -- role VARCHAR(50) DEFAULT 'viewer', -- Removed to match model (not in User model)
+    is_superuser BOOLEAN DEFAULT false, -- Added to match model
     
     is_active BOOLEAN DEFAULT true,
-    last_login TIMESTAMPTZ,
+    -- last_login TIMESTAMPTZ, -- Removed to match model
     
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 CREATE INDEX idx_users_email ON users(email);
-CREATE INDEX idx_users_team_id ON users(team_id);
 
 COMMENT ON TABLE users IS 'Dashboard users with authentication credentials';
-COMMENT ON COLUMN users.password_hash IS 'Bcrypt hashed password';
-
--- ============================================================================
--- AGENTS (Desktop monitoring agents installed on computers)
--- ============================================================================
-
-CREATE TABLE agents (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    
-    -- Computer identification
-    computer_id VARCHAR(255) UNIQUE NOT NULL,  -- Unique hardware ID
-    computer_name VARCHAR(255),                 -- Windows computer name
-    
-    -- Organization/Team
-    team_id UUID REFERENCES teams(id) ON DELETE CASCADE,
-    
-    -- Agent information
-    agent_version VARCHAR(50),                  -- e.g., "0.1.0"
-    os_version VARCHAR(100),                    -- e.g., "Windows 11 Pro 22H2"
-    
-    -- Status
-    status VARCHAR(20) DEFAULT 'active',        -- active, inactive, offline
-    last_heartbeat TIMESTAMPTZ,                 -- Last time agent checked in
-    
-    -- Installation info
-    installed_by UUID REFERENCES users(id),     -- Which admin installed it
-    installed_at TIMESTAMPTZ DEFAULT NOW(),
-    
-    -- API credentials
-    api_key_hash VARCHAR(255),                  -- Hashed API key for authentication
-    
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
-);
-
-CREATE INDEX idx_agents_team_id ON agents(team_id);
-CREATE INDEX idx_agents_computer_id ON agents(computer_id);
-CREATE INDEX idx_agents_status ON agents(status);
-CREATE INDEX idx_agents_last_heartbeat ON agents(last_heartbeat);
-
-COMMENT ON TABLE agents IS 'Desktop monitoring agents installed on employee computers';
-COMMENT ON COLUMN agents.computer_id IS 'Unique hardware identifier (e.g., motherboard UUID + MAC)';
-COMMENT ON COLUMN agents.last_heartbeat IS 'Updated every 5 minutes by agent';
+COMMENT ON COLUMN users.hashed_password IS 'Bcrypt hashed password';
 
 -- ============================================================================
 -- GENAI REQUESTS (Core logging table)
@@ -147,17 +73,11 @@ COMMENT ON COLUMN agents.last_heartbeat IS 'Updated every 5 minutes by agent';
 CREATE TABLE genai_requests (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     app_id UUID REFERENCES apps(id) ON DELETE CASCADE,
-    model_id UUID REFERENCES models(id),
     user_id UUID REFERENCES users(id),  -- Track which user made the request
-    agent_id UUID REFERENCES agents(id), -- NEW: Which agent logged this request
     
     -- Request metadata
     timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     request_hash VARCHAR(64) NOT NULL, -- SHA-256 hash of request (NOT the actual prompt)
-    
-    -- Agent-specific metadata
-    computer_name VARCHAR(255),         -- NEW: Computer name where request originated
-    process_name VARCHAR(255),          -- NEW: Process that made the API call (e.g., chrome.exe, code.exe)
     
     -- Model & Provider
     model_name VARCHAR(100) NOT NULL,
@@ -214,7 +134,6 @@ CREATE INDEX idx_genai_requests_app_timestamp ON genai_requests(app_id, timestam
 CREATE TABLE carbon_metrics (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     app_id UUID REFERENCES apps(id) ON DELETE CASCADE,
-    team_id UUID REFERENCES teams(id) ON DELETE CASCADE,
     
     -- Time period
     period_start TIMESTAMPTZ NOT NULL,
@@ -244,7 +163,6 @@ CREATE TABLE carbon_metrics (
 );
 
 CREATE INDEX idx_carbon_metrics_app_id ON carbon_metrics(app_id);
-CREATE INDEX idx_carbon_metrics_team_id ON carbon_metrics(team_id);
 CREATE INDEX idx_carbon_metrics_period ON carbon_metrics(period_start, period_end);
 CREATE INDEX idx_carbon_metrics_granularity ON carbon_metrics(granularity);
 
@@ -254,7 +172,6 @@ CREATE INDEX idx_carbon_metrics_granularity ON carbon_metrics(granularity);
 
 CREATE TABLE policies (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    team_id UUID REFERENCES teams(id) ON DELETE CASCADE,
     app_id UUID REFERENCES apps(id) ON DELETE SET NULL, -- NULL = applies to all apps
     
     name VARCHAR(255) NOT NULL,
@@ -281,80 +198,8 @@ CREATE TABLE policies (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_policies_team_id ON policies(team_id);
 CREATE INDEX idx_policies_app_id ON policies(app_id);
 CREATE INDEX idx_policies_is_active ON policies(is_active);
-
--- ============================================================================
--- ALERTS & NOTIFICATIONS
--- ============================================================================
-
-CREATE TABLE alerts (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    team_id UUID REFERENCES teams(id) ON DELETE CASCADE,
-    app_id UUID REFERENCES apps(id) ON DELETE CASCADE,
-    
-    alert_type VARCHAR(50) NOT NULL, -- threshold_exceeded, policy_violation, anomaly_detected
-    severity VARCHAR(20) NOT NULL, -- info, warning, critical
-    
-    title VARCHAR(255) NOT NULL,
-    message TEXT NOT NULL,
-    
-    -- Related data
-    metric_name VARCHAR(100), -- energy_wh, co2_g, cost_usd
-    metric_value DECIMAL(12, 4),
-    threshold_value DECIMAL(12, 4),
-    
-    -- Status
-    status VARCHAR(20) DEFAULT 'active', -- active, acknowledged, resolved
-    acknowledged_at TIMESTAMPTZ,
-    resolved_at TIMESTAMPTZ,
-    
-    metadata JSONB,
-    
-    created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
-CREATE INDEX idx_alerts_team_id ON alerts(team_id);
-CREATE INDEX idx_alerts_app_id ON alerts(app_id);
-CREATE INDEX idx_alerts_status ON alerts(status);
-CREATE INDEX idx_alerts_created_at ON alerts(created_at DESC);
-
--- ============================================================================
--- RECOMMENDATIONS (AI-generated optimization suggestions)
--- ============================================================================
-
-CREATE TABLE recommendations (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    team_id UUID REFERENCES teams(id) ON DELETE CASCADE,
-    app_id UUID REFERENCES apps(id) ON DELETE CASCADE,
-    
-    recommendation_type VARCHAR(50) NOT NULL, -- model_switch, prompt_optimization, region_migration
-    title VARCHAR(255) NOT NULL,
-    description TEXT NOT NULL,
-    
-    -- Impact estimation
-    estimated_co2_savings_g DECIMAL(12, 4),
-    estimated_cost_savings_usd DECIMAL(12, 4),
-    estimated_energy_savings_wh DECIMAL(12, 4),
-    
-    -- Implementation
-    difficulty VARCHAR(20), -- low, medium, high
-    implementation_steps TEXT,
-    
-    -- Status
-    status VARCHAR(20) DEFAULT 'pending', -- pending, applied, dismissed
-    applied_at TIMESTAMPTZ,
-    
-    metadata JSONB,
-    
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
-);
-
-CREATE INDEX idx_recommendations_team_id ON recommendations(team_id);
-CREATE INDEX idx_recommendations_app_id ON recommendations(app_id);
-CREATE INDEX idx_recommendations_status ON recommendations(status);
 
 -- ============================================================================
 -- REGIONAL CARBON INTENSITY (Reference data)
@@ -411,6 +256,62 @@ CREATE INDEX idx_refresh_tokens_expires_at ON refresh_tokens(expires_at);
 COMMENT ON TABLE refresh_tokens IS 'JWT refresh tokens for extended user sessions';
 
 -- ============================================================================
+-- MODEL SPECS
+-- ============================================================================
+
+CREATE TABLE model_specs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    model_name VARCHAR(255) NOT NULL UNIQUE,
+    provider VARCHAR(100) NOT NULL,
+    model_family VARCHAR(100),
+    parameters VARCHAR(50),
+    architecture VARCHAR(100),
+    gpu_type VARCHAR(100),
+    energy_j_per_token FLOAT,
+    energy_kwh_per_1k_tokens FLOAT,
+    co2_g_per_1k_tokens FLOAT,
+    training_energy_mwh FLOAT,
+    training_co2_tons FLOAT,
+    quality_score FLOAT,
+    latency_ms_per_token FLOAT,
+    cost_per_1k_input_tokens FLOAT,
+    cost_per_1k_output_tokens FLOAT,
+    data_source VARCHAR(255),
+    is_measured BOOLEAN DEFAULT false,
+    notes TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_model_specs_model_name ON model_specs(model_name);
+
+-- ============================================================================
+-- DATACENTER INFO
+-- ============================================================================
+
+CREATE TABLE datacenter_info (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    provider VARCHAR(100) NOT NULL,
+    region_code VARCHAR(50) NOT NULL,
+    region_name VARCHAR(255),
+    country VARCHAR(100),
+    latitude FLOAT,
+    longitude FLOAT,
+    carbon_intensity_g_per_kwh FLOAT,
+    renewable_percent FLOAT,
+    pue FLOAT DEFAULT 1.2,
+    coal_percent FLOAT,
+    natural_gas_percent FLOAT,
+    nuclear_percent FLOAT,
+    hydro_percent FLOAT,
+    wind_percent FLOAT,
+    solar_percent FLOAT,
+    data_source VARCHAR(255),
+    last_updated TIMESTAMPTZ DEFAULT NOW(),
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ============================================================================
 -- FUNCTIONS & TRIGGERS
 -- ============================================================================
 
@@ -424,22 +325,13 @@ END;
 $$ language 'plpgsql';
 
 -- Apply trigger to relevant tables
-CREATE TRIGGER update_teams_updated_at BEFORE UPDATE ON teams
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
 CREATE TRIGGER update_apps_updated_at BEFORE UPDATE ON apps
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
-CREATE TRIGGER update_models_updated_at BEFORE UPDATE ON models
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 CREATE TRIGGER update_carbon_metrics_updated_at BEFORE UPDATE ON carbon_metrics
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 CREATE TRIGGER update_policies_updated_at BEFORE UPDATE ON policies
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
-CREATE TRIGGER update_recommendations_updated_at BEFORE UPDATE ON recommendations
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users

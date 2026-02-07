@@ -9,7 +9,7 @@ from typing import Optional
 import uuid
 
 from app.database.connection import get_db
-from app.database.models import User, Team, RefreshToken
+from app.database.models import User, RefreshToken
 from app.models.auth_schemas import (
     UserRegister,
     UserLogin,
@@ -96,8 +96,6 @@ async def register(user_data: UserRegister, db: Session = Depends(get_db)):
         role="admin" if new_user.is_superuser else "viewer",
         first_name=first,
         last_name=last,
-        team_id=None,
-        team_name=None,
         is_active=new_user.is_active,
         # last_login=new_user.last_login, # Check fields
         created_at=new_user.created_at
@@ -166,9 +164,7 @@ async def login(credentials: UserLogin, db: Session = Depends(get_db)):
         first_name=first,
         last_name=last,
         role="viewer",
-        team_id=None,
-        team_name=None,
-        is_active=user.is_active,
+
         # last_login=user.last_login,
         created_at=user.created_at
     )
@@ -250,8 +246,6 @@ async def refresh_token(token_data: TokenRefresh, db: Session = Depends(get_db))
         first_name=first,
         last_name=last,
         role="viewer",
-        team_id=None,
-        team_name=None,
         is_active=user.is_active,
         # last_login=user.last_login,
         created_at=user.created_at
@@ -297,9 +291,7 @@ async def get_current_user_info(current_user: User = Depends(get_current_user), 
         first_name=first,
         last_name=last,
         role="viewer",
-        team_id=None,
-        team_name=None,
-        is_active=current_user.is_active,
+
         # last_login=current_user.last_login,
         created_at=current_user.created_at
     )
@@ -348,9 +340,7 @@ async def update_profile(
         first_name=first,
         last_name=last,
         role="viewer",
-        team_id=None,
-        team_name=None,
-        is_active=current_user.is_active,
+
         # last_login=current_user.last_login,
         created_at=current_user.created_at
     )
