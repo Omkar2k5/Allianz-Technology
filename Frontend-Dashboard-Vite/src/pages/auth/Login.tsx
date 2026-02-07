@@ -5,6 +5,7 @@ import { Label } from '@/components/ui/label'
 import { Card } from '@/components/ui/card'
 import { Link, useNavigate } from 'react-router-dom'
 import { Leaf } from 'lucide-react'
+import { API_URL } from '@/config'
 
 export default function SignInPage() {
     const navigate = useNavigate()
@@ -19,7 +20,7 @@ export default function SignInPage() {
         setError('')
 
         try {
-            const res = await fetch('http://127.0.0.1:8000/api/v1/auth/login', {
+            const res = await fetch(`${API_URL}/api/v1/auth/login`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
