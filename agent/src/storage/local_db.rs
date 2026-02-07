@@ -1,6 +1,6 @@
 
 use rusqlite::{Connection, Result};
-use tracing::info;
+use tracing::{info, debug};
 use std::sync::Mutex;
 
 pub struct LocalCache {
@@ -60,6 +60,53 @@ impl LocalCache {
         effective_power_w * latency_hours * PUE
     }
     
+    /// Detect region/datacenter from API endpoint or provider
+    /// This helps track carbon intensity by geographic location
+    fn detect_region(provider: &str, model: &str) -> String {
+        let provider_lower = provider.to_lowercase();
+        let model_lower = model.to_lowercase();
+        
+        // Log the inputs for debugging
+        debug!("detect_region called with provider='{}', model='{}'", provider, model);
+
+        // Detect region based on provider and model patterns
+        let region = match provider_lower.as_str() {
+            p if p.contains("openai") || p.contains("chatgpt") => {
+                // OpenAI primarily uses US datacenters
+                "US-East (Virginia)".to_string()
+            },
+            p if p.contains("anthropic") || p.contains("claude") => {
+                // Anthropic uses AWS, primarily US regions
+                "US-West (Oregon)".to_string()
+            },
+            p if p.contains("google") || p.contains("gemini") => {
+                // Google Cloud - detect from model or default to US
+                if model_lower.contains("asia") {
+                    "Asia-Pacific (Singapore)".to_string()
+                } else if model_lower.contains("europe") {
+                    "Europe (Frankfurt)".to_string()
+                } else {
+                    "US-Central (Iowa)".to_string()
+                }
+            },
+            _ => {
+                // Fallback based on model name if provider is generic
+                if model_lower.contains("gpt") {
+                    "US-East (Virginia)".to_string()
+                } else if model_lower.contains("claude") {
+                    "US-West (Oregon)".to_string()
+                } else if model_lower.contains("gemini") {
+                    "US-Central (Iowa)".to_string()
+                } else {
+                    "Unknown".to_string()
+                }
+            }
+        };
+        
+        debug!("detect_region result: '{}'", region);
+        region
+    }
+    
     /// Calculate CO2 emissions in grams based on energy consumption
     fn calculate_co2_g(energy_wh: f64) -> f64 {
         // India grid carbon intensity: 750 g CO2/kWh (conservative estimate)
@@ -90,7 +137,8 @@ impl LocalCache {
         // Current timestamp in ISO format (SQLAlchemy/SQLite friendly)
         let timestamp = chrono::Utc::now().naive_utc().to_string();
         
-        // Calculate energy and CO2
+        // Detect region and calculate energy/CO2
+        let region = Self::detect_region(provider, model);
         let energy_wh = Self::calculate_energy_wh(model, total_tokens, latency_ms);
         let co2_g = Self::calculate_co2_g(energy_wh);
 
@@ -106,8 +154,8 @@ impl LocalCache {
                 model_name, provider, 
                 tokens_input, tokens_output, tokens_total,
                 latency_ms, computer_name, created_at,
-                energy_wh, co2_g
-            ) VALUES (?1, ?2, ?3, NULL, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?3, ?11, ?12)",
+                energy_wh, co2_g, region
+            ) VALUES (?1, ?2, ?3, NULL, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?3, ?11, ?12, ?13)",
             (
                 id,             // ?1: id
                 request_id,     // ?2: request_hash (mapped from request_id)
@@ -122,6 +170,7 @@ impl LocalCache {
                 computer_name,  // ?10: computer_name
                 energy_wh,      // ?11: energy_wh
                 co2_g,          // ?12: co2_g
+                &region,        // ?13: region
             ),
         )?;
         

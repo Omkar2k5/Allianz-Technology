@@ -386,7 +386,7 @@ export default function RFE() {
                             <p className="text-sm text-muted-foreground">Quality Score / CO₂ Emissions (higher is better)</p>
                         </div>
                         <ResponsiveContainer width="100%" height={400}>
-                            <BarChart data={efficiencyData.sort((a, b) => parseFloat(b.efficiency) - parseFloat(a.efficiency))}>
+                            <BarChart data={[...efficiencyData].sort((a, b) => parseFloat(b.efficiency) - parseFloat(a.efficiency))}>
                                 <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
                                 <XAxis dataKey="name" stroke="var(--color-muted-foreground)" angle={-45} textAnchor="end" height={120} />
                                 <YAxis stroke="var(--color-muted-foreground)" label={{ value: 'Efficiency Score', angle: -90, position: 'insideLeft' }} />
@@ -421,7 +421,7 @@ export default function RFE() {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {researchModels.sort((a, b) => a.co2G - b.co2G).map((model) => (
+                                    {[...researchModels].sort((a, b) => a.co2G - b.co2G).map((model) => (
                                         <tr key={model.name} className="border-b border-border/50 hover:bg-muted/50 transition-colors">
                                             <td className="py-4 px-4 font-medium text-foreground">{model.name}</td>
                                             <td className="py-4 px-4 text-muted-foreground text-xs">{model.provider}</td>
@@ -471,7 +471,7 @@ export default function RFE() {
                             <p className="text-sm text-muted-foreground">gCO₂/kWh by region (lower is better)</p>
                         </div>
                         <ResponsiveContainer width="100%" height={400}>
-                            <BarChart data={cloudRegions.sort((a, b) => a.carbon - b.carbon)}>
+                            <BarChart data={[...cloudRegions].sort((a, b) => a.carbon - b.carbon)}>
                                 <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
                                 <XAxis dataKey="region" stroke="var(--color-muted-foreground)" angle={-45} textAnchor="end" height={120} />
                                 <YAxis stroke="var(--color-muted-foreground)" label={{ value: 'Carbon Intensity (gCO₂/kWh)', angle: -90, position: 'insideLeft' }} />
@@ -498,7 +498,7 @@ export default function RFE() {
                             <p className="text-sm text-muted-foreground">% renewable energy by cloud region</p>
                         </div>
                         <ResponsiveContainer width="100%" height={400}>
-                            <BarChart data={cloudRegions.sort((a, b) => b.renewable - a.renewable)}>
+                            <BarChart data={[...cloudRegions].sort((a, b) => b.renewable - a.renewable)}>
                                 <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
                                 <XAxis dataKey="region" stroke="var(--color-muted-foreground)" angle={-45} textAnchor="end" height={120} />
                                 <YAxis stroke="var(--color-muted-foreground)" label={{ value: 'Renewable %', angle: -90, position: 'insideLeft' }} />
@@ -530,7 +530,7 @@ export default function RFE() {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {cloudRegions.sort((a, b) => a.carbon - b.carbon).map((region) => (
+                                    {[...cloudRegions].sort((a, b) => a.carbon - b.carbon).map((region) => (
                                         <tr key={region.region} className="border-b border-border/50 hover:bg-muted/50 transition-colors">
                                             <td className="py-4 px-4 font-medium text-foreground">{region.region}</td>
                                             <td className="py-4 px-4 text-muted-foreground">{region.provider}</td>

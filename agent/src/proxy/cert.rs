@@ -1,5 +1,5 @@
 use anyhow::{Result, Context};
-use rcgen::{Certificate, CertificateParams, DistinguishedName, DnType, IsCa, BasicConstraints, KeyUsagePurpose};
+use rcgen::{Certificate, CertificateParams, DistinguishedName, DnType, IsCa, BasicConstraints, KeyUsagePurpose, ExtendedKeyUsagePurpose};
 use std::fs;
 use std::path::Path;
 use tracing::info;
@@ -14,7 +14,7 @@ impl CertificateManager {
     pub fn new() -> Result<Self> {
         // Check if CA cert already exists
         if Path::new("ca_cert.pem").exists() && Path::new("ca_key.pem").exists() {
-            info!("📜 Loading existing CA certificate...");
+            info!("📜 Loading existing CA certificate from: {}", fs::canonicalize("ca_cert.pem")?.display());
             return Self::load_existing();
         }
         
@@ -91,6 +91,8 @@ impl CertificateManager {
         let mut params = CertificateParams::new(vec![domain.to_string()]);
         params.distinguished_name = DistinguishedName::new();
         params.distinguished_name.push(DnType::CommonName, domain);
+        // Add ServerAuth EKU which is required by modern browsers
+        params.extended_key_usages = vec![ExtendedKeyUsagePurpose::ServerAuth];
         
         let cert = Certificate::from_params(params)
             .context("Failed to generate domain certificate")?;

@@ -318,8 +318,9 @@ async def get_emissions_metrics(
     by_region = by_region.group_by(models.GenAIRequest.region).all()
     
     # Monthly trend
+    # Use SQLite strftime for month truncation (yyyy-mm)
     monthly = db.query(
-        func.date_trunc('month', models.GenAIRequest.timestamp).label('month'),
+        func.strftime('%Y-%m', models.GenAIRequest.timestamp).label('month'),
         func.sum(models.GenAIRequest.co2_g).label('co2')
     ).filter(
         models.GenAIRequest.timestamp >= start_date,
@@ -329,7 +330,7 @@ async def get_emissions_metrics(
     if app_id:
         monthly = monthly.filter(models.GenAIRequest.app_id == app_id)
     
-    monthly = monthly.group_by(func.date_trunc('month', models.GenAIRequest.timestamp)).all()
+    monthly = monthly.group_by(func.strftime('%Y-%m', models.GenAIRequest.timestamp)).all()
     
     return {
         "total_co2_g": float(total.total_co2 or 0),
