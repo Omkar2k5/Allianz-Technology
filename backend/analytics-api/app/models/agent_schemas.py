@@ -63,6 +63,7 @@ class AIRequestLog(BaseModel):
     latency_ms: int
     response_status: int
     
+    server_ip: Optional[str] = None  # Server IP for region detection
     prompt_hash: Optional[str] = None
     contains_pii: Optional[bool] = None
 

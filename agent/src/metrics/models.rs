@@ -26,5 +26,8 @@ pub struct AIRequestLog {
     pub response_status: i32,
     
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub server_ip: Option<String>,
+    
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub prompt_hash: Option<String>,
 }

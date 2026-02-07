@@ -188,6 +188,12 @@ async fn intercept_tls(
 
     // 4. Connect to upstream
     let target_stream = TcpStream::connect(target_addr).await?;
+    
+    // Extract server IP for region detection
+    let server_ip = target_stream.peer_addr()
+        .map(|addr| addr.ip().to_string())
+        .unwrap_or_else(|_| "unknown".to_string());
+    
     let domain = rustls::pki_types::ServerName::try_from(host.to_string())?;
     let target_tls_stream = tls_connector.connect(domain, target_stream).await?;
     let target_io = TokioIo::new(target_tls_stream);
@@ -208,9 +214,10 @@ async fn intercept_tls(
         let db = db.clone();
         let user_id = user_id.clone();
         let provider = host.to_string(); // Simple provider detection
+        let server_ip_clone = server_ip.clone();
         
         async move {
-            proxy_request(req, sender, db, user_id, provider).await
+            proxy_request(req, sender, db, user_id, provider, server_ip_clone).await
         }
     });
 
@@ -230,6 +237,7 @@ async fn proxy_request(
     db: Arc<LocalCache>,
     user_id: String,
     provider: String,
+    server_ip: String,
 ) -> Result<Response<Full<Bytes>>, Infallible> {
     
     // Read request body
@@ -325,7 +333,8 @@ async fn proxy_request(
                     resp_data.prompt_tokens,
                     resp_data.completion_tokens,
                     resp_data.total_tokens,
-                    latency
+                    latency,
+                    Some(&server_ip),
                 ) {
                     error!("❌ Failed to log AI request: {}", e);
                 } else {
@@ -346,7 +355,8 @@ async fn proxy_request(
                     estimated_prompt_tokens,
                     estimated_completion_tokens,
                     estimated_total,
-                    latency
+                    latency,
+                    Some(&server_ip),
                 ) {
                     error!("❌ Failed to log AI request (fallback): {}", e);
                 }

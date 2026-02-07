@@ -124,6 +124,7 @@ impl LocalCache {
         completion_tokens: i32,
         total_tokens: i32,
         latency_ms: i64,
+        server_ip: Option<&str>,
     ) -> Result<()> {
         let conn = self.get_connection();
         
@@ -154,8 +155,8 @@ impl LocalCache {
                 model_name, provider, 
                 tokens_input, tokens_output, tokens_total,
                 latency_ms, computer_name, created_at,
-                energy_wh, co2_g, region
-            ) VALUES (?1, ?2, ?3, NULL, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?3, ?11, ?12, ?13)",
+                energy_wh, co2_g, region, carbon_intensity
+            ) VALUES (?1, ?2, ?3, NULL, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?3, ?11, ?12, ?13, ?14)",
             (
                 id,             // ?1: id
                 request_id,     // ?2: request_hash (mapped from request_id)
@@ -171,6 +172,7 @@ impl LocalCache {
                 energy_wh,      // ?11: energy_wh
                 co2_g,          // ?12: co2_g
                 &region,        // ?13: region
+                server_ip.unwrap_or("unknown"), // ?14: carbon_intensity (will be detected by backend)
             ),
         )?;
         

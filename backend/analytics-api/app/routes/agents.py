@@ -22,6 +22,7 @@ from app.models.agent_schemas import (
 )
 from app.auth.jwt import get_current_user
 from app.database.models import User
+from app.services.region_detector import region_detector
 
 router = APIRouter()
 
@@ -201,10 +202,24 @@ async def ingest_bulk_logs(
                 # Hash
                 request_hash=log.prompt_hash or "",
                 
-                # Region (default for now)
-                region="unknown",
-                carbon_intensity=0.4
+                # Region detection from server IP (if provided)
+                region=None,
+                carbon_intensity=400.0  # Default
             )
+            
+            # Detect region from server IP if provided
+            if log.server_ip:
+                try:
+                    detected_region, carbon_intensity = region_detector.detect_region_from_ip(log.server_ip)
+                    request.region = detected_region
+                    request.carbon_intensity = carbon_intensity
+                    
+                    # Recalculate CO2 with region-specific carbon intensity
+                    if log.energy_wh:
+                        request.co2_g = log.energy_wh * (carbon_intensity / 1000.0)  # Convert gCO2/kWh to gCO2/Wh
+                except Exception as e:
+                    # Log error but don't fail the entire request
+                    errors.append(f"Region detection failed for {log.server_ip}: {str(e)}")
             
             db.add(request)
             inserted += 1
