@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { API_URL } from '@/config'
 import {
     Select,
     SelectContent,
@@ -56,9 +57,9 @@ export default function ReportsPage() {
     const fetchInitialReports = async () => {
         try {
             const [monthlyRes, quarterlyRes, annualRes] = await Promise.all([
-                fetch('http://localhost:8000/api/v1/dashboard/overview?days=30'),
-                fetch('http://localhost:8000/api/v1/dashboard/overview?days=90'),
-                fetch('http://localhost:8000/api/v1/dashboard/overview?days=365')
+                fetch(`${API_URL}/api/v1/dashboard/overview?days=30`),
+                fetch(`${API_URL}/api/v1/dashboard/overview?days=90`),
+                fetch(`${API_URL}/api/v1/dashboard/overview?days=365`)
             ])
 
             const monthlyData = await monthlyRes.json()
@@ -112,11 +113,11 @@ export default function ReportsPage() {
             if (dateRange === 'yearly') days = 365
 
             // Fetch Overview Data
-            const overviewRes = await fetch(`http://localhost:8000/api/v1/dashboard/overview?days=${days}`)
+            const overviewRes = await fetch(`${API_URL}/api/v1/dashboard/overview?days=${days}`)
             const overviewData = await overviewRes.json()
 
             // Fetch Usage Data (for charts)
-            const usageRes = await fetch(`http://localhost:8000/api/v1/dashboard/usage?days=${days}`)
+            const usageRes = await fetch(`${API_URL}/api/v1/dashboard/usage?days=${days}`)
             const usageData = await usageRes.json()
 
             console.log('Usage Data Debug:', usageData) // Debug Log mechanism

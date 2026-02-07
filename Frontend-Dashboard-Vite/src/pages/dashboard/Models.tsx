@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { API_URL } from '@/config'
 import {
     BarChart,
     Bar,
@@ -59,7 +60,7 @@ export default function ModelsPage() {
     const fetchModels = async () => {
         try {
             // Fetch data from backend
-            const response = await fetch('http://localhost:8000/api/v1/model-specs/models')
+            const response = await fetch(`${API_URL}/api/v1/model-specs/models`)
             if (!response.ok) throw new Error('Failed to fetch models')
 
             const data: ModelSpec[] = await response.json()

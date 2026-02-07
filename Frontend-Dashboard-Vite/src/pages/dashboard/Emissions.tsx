@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import CountUp from 'react-countup'
+import { API_URL } from '@/config'
 import {
     LineChart,
     Line,
@@ -27,7 +28,7 @@ export default function Emissions() {
 
     const fetchEmissionsData = async () => {
         try {
-            const response = await fetch('http://localhost:8000/api/v1/dashboard/emissions?days=30')
+            const response = await fetch(`${API_URL}/api/v1/dashboard/emissions?days=30`)
             const data = await response.json()
             setEmissionsData(data)
             setLoading(false)
