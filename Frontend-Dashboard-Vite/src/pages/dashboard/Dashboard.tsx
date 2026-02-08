@@ -160,97 +160,41 @@ export default function Dashboard() {
                 </Card>
             </div>
 
-            {/* Critical Alerts */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-2 space-y-4">
-                    <Card className="p-6 border border-border/50">
-                        <h3 className="text-lg font-semibold text-foreground mb-4">Recent Alerts</h3>
-                        <div className="space-y-3">
-                            {overview?.alerts && overview.alerts.length > 0 ? (
-                                overview.alerts.map((alert: any) => (
-                                    <Alert key={alert.id} className="border-l-4 border-yellow-500 bg-yellow-50 dark:bg-yellow-950/20">
-                                        <AlertCircle className="h-4 w-4 text-yellow-600 dark:text-yellow-500" />
-                                        <AlertTitle className="text-yellow-900 dark:text-yellow-400">
-                                            {alert.title}
-                                        </AlertTitle>
-                                        <AlertDescription className="text-yellow-800 dark:text-yellow-500 text-sm mt-1">
-                                            {alert.message}
-                                        </AlertDescription>
-                                    </Alert>
-                                ))
-                            ) : (
-                                <div className="text-sm text-muted-foreground p-4 text-center border dashed rounded-lg">
-                                    No active alerts
-                                </div>
-                            )}
-                        </div>
-                    </Card>
-
-                    {/* Token Usage Chart */}
-                    <Card className="p-6 border border-border/50">
-                        <div className="flex items-center justify-between mb-4">
-                            <h3 className="text-lg font-semibold text-foreground">Token Usage Over Time</h3>
-                            <div className="text-sm text-muted-foreground">Last 7 days</div>
-                        </div>
-                        <ResponsiveContainer width="100%" height={300}>
-                            {tokenData.length > 0 ? (
-                                <LineChart data={tokenData}>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-                                    <XAxis dataKey="date" stroke="var(--color-muted-foreground)" />
-                                    <YAxis stroke="var(--color-muted-foreground)" />
-                                    <Tooltip
-                                        contentStyle={{
-                                            backgroundColor: 'var(--color-card)',
-                                            border: '1px solid var(--color-border)',
-                                            borderRadius: '0.5rem',
-                                        }}
-                                    />
-                                    <Line
-                                        type="monotone"
-                                        dataKey="tokens"
-                                        stroke="var(--color-primary)"
-                                        strokeWidth={2}
-                                        dot={{ fill: 'var(--color-primary)', r: 4 }}
-                                        activeDot={{ r: 6 }}
-                                    />
-                                </LineChart>
-                            ) : (
-                                <div className="flex items-center justify-center h-full text-muted-foreground">
-                                    No usage data available
-                                </div>
-                            )}
-                        </ResponsiveContainer>
-                    </Card>
+            {/* Token Usage Chart */}
+            <Card className="p-6 border border-border/50">
+                <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold text-foreground">Token Usage Over Time</h3>
+                    <div className="text-sm text-muted-foreground">Last 7 days</div>
                 </div>
-
-                {/* Recommendations */}
-                <Card className="p-6 border border-border/50">
-                    <h3 className="text-lg font-semibold text-foreground mb-4">Recommendations</h3>
-                    <div className="space-y-3">
-                        {overview?.recommendations && overview.recommendations.length > 0 ? (
-                            overview.recommendations.map((rec: any) => (
-                                <div key={rec.id} className="p-3 rounded-lg bg-primary/5 border border-primary/10">
-                                    <p className="text-sm font-medium text-foreground">{rec.title}</p>
-                                    <p className="text-xs text-muted-foreground mt-1">
-                                        Est. Savings: {rec.estimated_savings_co2_g}g CO₂
-                                    </p>
-                                </div>
-                            ))
-                        ) : (
-                            <div className="p-3 rounded-lg bg-accent/5 border border-accent/10">
-                                <p className="text-sm font-medium text-foreground">No recommendations yet</p>
-                                <p className="text-xs text-muted-foreground mt-1">
-                                    Check back after more usage
-                                </p>
-                            </div>
-                        )}
-
-                        <Button className="w-full mt-4 bg-primary text-primary-foreground hover:bg-primary/90">
-                            View All Recommendations
-                        </Button>
-                    </div>
-                </Card>
-            </div>
+                <ResponsiveContainer width="100%" height={300}>
+                    {tokenData.length > 0 ? (
+                        <LineChart data={tokenData}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
+                            <XAxis dataKey="date" stroke="var(--color-muted-foreground)" />
+                            <YAxis stroke="var(--color-muted-foreground)" />
+                            <Tooltip
+                                contentStyle={{
+                                    backgroundColor: 'var(--color-card)',
+                                    border: '1px solid var(--color-border)',
+                                    borderRadius: '0.5rem',
+                                }}
+                            />
+                            <Line
+                                type="monotone"
+                                dataKey="tokens"
+                                stroke="var(--color-primary)"
+                                strokeWidth={2}
+                                dot={{ fill: 'var(--color-primary)', r: 4 }}
+                                activeDot={{ r: 6 }}
+                            />
+                        </LineChart>
+                    ) : (
+                        <div className="flex items-center justify-center h-full text-muted-foreground">
+                            No usage data available
+                        </div>
+                    )}
+                </ResponsiveContainer>
+            </Card>
         </div>
     )
 }

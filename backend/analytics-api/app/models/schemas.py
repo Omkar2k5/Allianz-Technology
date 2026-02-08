@@ -102,3 +102,16 @@ class EmissionsMetrics(BaseModel):
     total_co2_g: float
     by_region: List[EmissionsByRegion]
     monthly_trend: List[MonthlyEmissions]
+    
+    
+# Model Specs
+class ModelSpecSchema(BaseModel):
+    id: str
+    model_name: str
+    provider: str
+    parameters: Optional[str] = None
+    energy_kwh_per_1k_tokens: Optional[float] = 0
+    co2_g_per_1k_tokens: Optional[float] = 0
+    quality_score: Optional[float] = 0
+    cost_per_1k_input_tokens: Optional[float] = 0
+    cost_per_1k_output_tokens: Optional[float] = 0

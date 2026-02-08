@@ -1,52 +1,43 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Card } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { API_URL } from '@/config'
 import {
-    BarChart,
-    Bar,
+    ScatterChart,
+    Scatter,
     XAxis,
     YAxis,
+    ZAxis,
     CartesianGrid,
     Tooltip,
-    Legend,
     ResponsiveContainer,
+    Cell,
+    Legend
 } from 'recharts'
-import { ArrowUpRight, Info } from 'lucide-react'
+import { Info, Leaf, Zap, Trophy, Activity } from 'lucide-react'
 
 // Interface for API response
 interface ModelSpec {
+    id: string
     model_name: string
     provider: string
     parameters: string
-    gpu_type: string
     energy_kwh_per_1k_tokens: number
     co2_g_per_1k_tokens: number
     quality_score: number
     cost_per_1k_input_tokens: number
     cost_per_1k_output_tokens: number
-    is_measured: boolean
-    data_source: string
 }
 
 // Interface for UI display
-interface ModelUI {
-    id: number
-    name: string
-    provider: string
-    parameters: string
-    tokensPerSec: number
-    kwh1k: number
-    co2per: number
-    score: string
+interface ModelUI extends ModelSpec {
+    efficiency_score: number
     color: string
-    quality_score: number
-    efficiency: number
-    cost: number
 }
+
+const COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#ff7300', '#0088fe', '#00C49F', '#FFBB28', '#FF8042']
 
 export default function ModelsPage() {
     const [models, setModels] = useState<ModelUI[]>([])
@@ -58,74 +49,26 @@ export default function ModelsPage() {
 
     const fetchModels = async () => {
         try {
-            // Fetch data from backend
-            const response = await fetch(`${API_URL}/api/v1/model-specs/models`)
+            // Fetch from the new endpoint
+            const response = await fetch(`${API_URL}/api/v1/model-specs/`)
             if (!response.ok) throw new Error('Failed to fetch models')
 
             const data: ModelSpec[] = await response.json()
 
-            // Transform data for UI
-            const processed: ModelUI[] = data.map((spec, index) => {
-                // Calculate scores and colors
-                const quality = spec.quality_score || 0
-                let score = 'D'
-                let color = '#ef4444' // red
-
-                if (quality >= 85) { score = 'A+'; color = '#22c55e' } // green
-                else if (quality >= 75) { score = 'A'; color = '#84cc16' } // lime
-                else if (quality >= 65) { score = 'B'; color = '#fbbf24' } // amber
-                else if (quality >= 50) { score = 'C'; color = '#f97316' } // orange
-
-                // Estimate tokens/sec based on parameter size (heuristic reversed)
-                // Smaller models -> faster
-                let tps = 20
-                const paramStr = spec.parameters?.toLowerCase() || ''
-                if (paramStr.includes('7b') || paramStr.includes('8b')) tps = 100 + Math.random() * 20
-                else if (paramStr.includes('13b')) tps = 80 + Math.random() * 15
-                else if (paramStr.includes('70b')) tps = 40 + Math.random() * 10
-                else if (paramStr.includes('175b') || paramStr.includes('405b')) tps = 15 + Math.random() * 5
-
-                // Calculate avg cost per 1k tokens
-                const cost = ((spec.cost_per_1k_input_tokens || 0) + (spec.cost_per_1k_output_tokens || 0)) / 2
-
-                // Calculate efficiency score (Quality / CO2 impact)
-                // Higher is better. Normalize to 0-100 range roughly
-                const efficiency = quality / Math.max(spec.co2_g_per_1k_tokens, 0.1) * 2 // Scaling factor
-
-                return {
-                    id: index + 1,
-                    name: spec.model_name,
-                    provider: spec.provider,
-                    parameters: spec.parameters || 'Unknown',
-                    tokensPerSec: Math.round(tps),
-                    kwh1k: spec.energy_kwh_per_1k_tokens,
-                    co2per: spec.co2_g_per_1k_tokens,
-                    score,
-                    color,
-                    quality_score: quality,
-                    efficiency: Math.min(Math.round(efficiency), 100),
-                    cost: cost * 1000 // Show relative cost (e.g. per 1M tokens) for chart visibility
-                }
-            })
+            const processed: ModelUI[] = data.map((m, i) => ({
+                ...m,
+                // Calculate simple efficiency score: Quality / Energy
+                efficiency_score: m.quality_score / (m.energy_kwh_per_1k_tokens || 0.0001),
+                color: COLORS[i % COLORS.length]
+            }))
 
             setModels(processed)
-
         } catch (err) {
             console.error('Error loading models:', err)
         } finally {
             setLoading(false)
         }
     }
-
-    // Prepare chart data (Top 5 by efficiency)
-    const chartData = [...models]
-        .sort((a, b) => b.efficiency - a.efficiency)
-        .slice(0, 5)
-        .map(m => ({
-            name: m.name,
-            energy: m.kwh1k,
-            emissions: m.co2per
-        }))
 
     if (loading) {
         return (
@@ -135,123 +78,179 @@ export default function ModelsPage() {
         )
     }
 
+    const bestModel = models.reduce((prev, current) =>
+        (prev.efficiency_score > current.efficiency_score) ? prev : current
+        , models[0])
+
+    const lowestCarbon = models.reduce((prev, current) =>
+        (current.co2_g_per_1k_tokens > 0 && current.co2_g_per_1k_tokens < prev.co2_g_per_1k_tokens) ? current : prev
+        , models[0])
+
     return (
-        <div className="p-6 space-y-6 md:ml-64">
-            {/* Header */}
+        <div className="p-6 space-y-6 md:ml-64 relative">
             <div className="flex flex-col gap-2">
-                <h2 className="text-3xl font-bold text-foreground">Model Efficiency Comparison</h2>
+                <h2 className="text-3xl font-bold text-foreground">Model Efficiency Landscape</h2>
                 <p className="text-muted-foreground">
-                    Compare key performance and environmental metrics across different AI models
+                    Visualize the trade-off between Model Quality, Energy Efficiency, and Environmental Impact.
                 </p>
             </div>
 
-            {/* Info Section */}
-            <Card className="p-4 bg-primary/5 border border-primary/10 flex gap-3">
-                <Info className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
-                <div>
-                    <p className="text-sm font-medium text-foreground">Model Efficiency Overview</p>
-                    <p className="text-sm text-muted-foreground mt-1">
-                        Real-time data from backend database. Comparing {models.length} models. Efficiency Score is derived from Quality / CO₂.
-                    </p>
+            {/* Key Metrics Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <Card className="bg-gradient-to-br from-green-500/10 to-transparent border-green-500/20">
+                    <CardHeader className="pb-2">
+                        <CardDescription className="flex items-center gap-2 text-green-600 dark:text-green-400">
+                            <Trophy className="h-4 w-4" /> Best Quality/Energy Ratio
+                        </CardDescription>
+                        <CardTitle className="text-2xl">{bestModel?.model_name}</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="flex justify-between items-center text-sm">
+                            <span className="text-muted-foreground">Efficiency Score:</span>
+                            <span className="font-bold">{bestModel?.efficiency_score.toFixed(0)}</span>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                <Card className="bg-gradient-to-br from-emerald-500/10 to-transparent border-emerald-500/20">
+                    <CardHeader className="pb-2">
+                        <CardDescription className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
+                            <Leaf className="h-4 w-4" /> Lowest Carbon Footprint
+                        </CardDescription>
+                        <CardTitle className="text-2xl">{lowestCarbon?.model_name}</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="flex justify-between items-center text-sm">
+                            <span className="text-muted-foreground">CO₂ per 1k tokens:</span>
+                            <span className="font-bold">{lowestCarbon?.co2_g_per_1k_tokens.toFixed(3)}g</span>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardHeader className="pb-2">
+                        <CardDescription className="flex items-center gap-2">
+                            <Activity className="h-4 w-4" /> Models Tracked
+                        </CardDescription>
+                        <CardTitle className="text-2xl">{models.length}</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <p className="text-xs text-muted-foreground mt-1">
+                            Live data from model registry
+                        </p>
+                    </CardContent>
+                </Card>
+            </div>
+
+            {/* Bubble Chart */}
+            <Card className="p-6">
+                <div className="mb-6 flex justify-between items-start">
+                    <div>
+                        <h3 className="text-lg font-semibold">Efficiency Landscape</h3>
+                        <p className="text-sm text-muted-foreground">
+                            X: Quality Score | Y: Energy Efficiency (Higher is better) | Bubble Size: CO₂ Impact
+                        </p>
+                    </div>
+                </div>
+
+                <div className="h-[400px] w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                        <ScatterChart
+                            margin={{ top: 20, right: 20, bottom: 20, left: 20 }}
+                        >
+                            <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.2} />
+                            <XAxis
+                                type="number"
+                                dataKey="quality_score"
+                                name="Quality"
+                                domain={[0, 100]}
+                                label={{ value: 'Quality Score (MMLU)', position: 'bottom', offset: 0 }}
+                                stroke="currentColor"
+                                className="text-xs"
+                            />
+                            <YAxis
+                                type="number"
+                                dataKey="efficiency_score"
+                                name="Efficiency"
+                                label={{ value: 'Energy Efficiency', angle: -90, position: 'insideLeft' }}
+                                stroke="currentColor"
+                                className="text-xs"
+                            />
+                            <ZAxis type="number" dataKey="co2_g_per_1k_tokens" range={[60, 400]} name="CO₂ Impact" />
+                            <Tooltip
+                                cursor={{ strokeDasharray: '3 3' }}
+                                content={({ active, payload }) => {
+                                    if (active && payload && payload.length) {
+                                        const data = payload[0].payload;
+                                        return (
+                                            <div className="bg-card border border-border p-3 rounded shadow-lg text-sm">
+                                                <p className="font-bold mb-1">{data.model_name}</p>
+                                                <p className="text-muted-foreground">Provider: {data.provider}</p>
+                                                <div className="my-1 h-px bg-border" />
+                                                <p>Quality: <span className="font-mono">{data.quality_score}</span></p>
+                                                <p>Energy/1k: <span className="font-mono">{data.energy_kwh_per_1k_tokens} kWh</span></p>
+                                                <p>CO₂/1k: <span className="font-mono">{data.co2_g_per_1k_tokens} g</span></p>
+                                            </div>
+                                        );
+                                    }
+                                    return null;
+                                }}
+                            />
+                            <Legend />
+                            <Scatter name="AI Models" data={models} fill="#8884d8">
+                                {models.map((entry, index) => (
+                                    <Cell key={`cell-${index}`} fill={entry.color} />
+                                ))}
+                            </Scatter>
+                        </ScatterChart>
+                    </ResponsiveContainer>
                 </div>
             </Card>
 
-            {/* Model Overview Cards */}
-            {models.length > 0 && (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <Card className="p-6 border border-border/50">
-                        <p className="text-sm font-medium text-muted-foreground mb-1">Most Efficient Model</p>
-                        <p className="text-xl font-bold text-foreground mb-1">
-                            {models.reduce((prev, current) => (prev.efficiency > current.efficiency) ? prev : current).name}
-                        </p>
-                        <p className="text-xs text-muted-foreground">Highest Quality/CO₂ Ratio</p>
-                    </Card>
-
-                    <Card className="p-6 border border-border/50">
-                        <p className="text-sm font-medium text-muted-foreground mb-1">Lowest Carbon Footprint</p>
-                        <p className="text-xl font-bold text-foreground mb-1">
-                            {models.reduce((prev, current) => (prev.co2per < current.co2per) ? prev : current).name}
-                        </p>
-                        <p className="text-xs text-muted-foreground">Lowest CO₂ per 1k tokens</p>
-                    </Card>
-
-                    <Card className="p-6 border border-border/50">
-                        <p className="text-sm font-medium text-muted-foreground mb-1">Highest Quality</p>
-                        <p className="text-xl font-bold text-foreground mb-1">
-                            {models.reduce((prev, current) => (prev.quality_score > current.quality_score) ? prev : current).name}
-                        </p>
-                        <p className="text-xs text-muted-foreground">Highest MMLU/HumanEval Score</p>
-                    </Card>
-                </div>
-            )}
-
-            {/* Efficiency vs Cost Chart */}
-            <Card className="p-6 border border-border/50">
-                <div className="mb-6">
-                    <h3 className="text-lg font-semibold text-foreground">Top 5 Efficient Models</h3>
-                    <p className="text-sm text-muted-foreground">Emissions vs Energy Consumption (per 1k tokens)</p>
-                </div>
-                <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={chartData}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-                        <XAxis dataKey="name" stroke="var(--color-muted-foreground)" angle={-45} textAnchor="end" height={80} />
-                        <YAxis stroke="var(--color-muted-foreground)" />
-                        <Tooltip
-                            contentStyle={{
-                                backgroundColor: 'var(--color-card)',
-                                border: '1px solid var(--color-border)',
-                                borderRadius: '0.5rem',
-                            }}
-                        />
-                        <Legend />
-                        <Bar dataKey="energy" fill="var(--color-primary)" name="Energy (kWh)" />
-                        <Bar dataKey="emissions" fill="var(--color-destructive)" name="Emissions (g)" />
-                    </BarChart>
-                </ResponsiveContainer>
-            </Card>
-
-            {/* Model Table */}
-            <Card className="p-6 border border-border/50">
-                <h3 className="text-lg font-semibold text-foreground mb-6">Detailed Model Specs</h3>
-                <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                        <thead>
-                            <tr className="border-b border-border">
-                                <th className="text-left py-3 px-4 font-semibold text-muted-foreground">Model Name</th>
-                                <th className="text-left py-3 px-4 font-semibold text-muted-foreground">Provider</th>
-                                <th className="text-left py-3 px-4 font-semibold text-muted-foreground">Params</th>
-                                <th className="text-left py-3 px-4 font-semibold text-muted-foreground">Est. Tokens/Sec</th>
-                                <th className="text-left py-3 px-4 font-semibold text-muted-foreground">kWh/1k</th>
-                                <th className="text-left py-3 px-4 font-semibold text-muted-foreground">CO₂ (g)/1k</th>
-                                <th className="text-left py-3 px-4 font-semibold text-muted-foreground">Score</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {models.map((model) => (
-                                <tr key={model.id} className="border-b border-border/50 hover:bg-muted/50 transition-colors">
-                                    <td className="py-4 px-4 text-foreground font-medium">{model.name}</td>
-                                    <td className="py-4 px-4 text-muted-foreground text-xs">{model.provider}</td>
-                                    <td className="py-4 px-4 text-foreground">{model.parameters}</td>
-                                    <td className="py-4 px-4 text-foreground">{model.tokensPerSec}</td>
-                                    <td className="py-4 px-4 text-foreground">{model.kwh1k.toFixed(6)}</td>
-                                    <td className="py-4 px-4 text-foreground">{model.co2per.toFixed(4)}</td>
-                                    <td className="py-4 px-4">
-                                        <Badge
-                                            className="text-xs font-semibold"
-                                            style={{
-                                                backgroundColor: model.color + '20',
-                                                color: model.color,
-                                                border: `1px solid ${model.color}`,
-                                            }}
-                                        >
-                                            {model.score}
-                                        </Badge>
-                                    </td>
+            {/* Detailed Table */}
+            <Card>
+                <CardHeader>
+                    <CardTitle>Detailed Specifications</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-sm text-left">
+                            <thead className="bg-muted/50 text-muted-foreground uppercase text-xs">
+                                <tr>
+                                    <th className="px-4 py-3 rounded-tl-lg">Model</th>
+                                    <th className="px-4 py-3">Provider</th>
+                                    <th className="px-4 py-3">Quality</th>
+                                    <th className="px-4 py-3 text-right">Energy (kWh/1k)</th>
+                                    <th className="px-4 py-3 text-right">CO₂ (g/1k)</th>
+                                    <th className="px-4 py-3 rounded-tr-lg text-right">Est. Cost ($/1M)</th>
                                 </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
+                            </thead>
+                            <tbody className="divide-y divide-border">
+                                {models.map((model) => (
+                                    <tr key={model.id} className="hover:bg-muted/50 transition-colors">
+                                        <td className="px-4 py-3 font-medium">
+                                            <div className="flex items-center gap-2">
+                                                <span className="w-2 h-2 rounded-full" style={{ backgroundColor: model.color }}></span>
+                                                {model.model_name}
+                                            </div>
+                                        </td>
+                                        <td className="px-4 py-3">{model.provider}</td>
+                                        <td className="px-4 py-3">
+                                            <Badge variant={model.quality_score > 80 ? "default" : "secondary"}>
+                                                {model.quality_score}
+                                            </Badge>
+                                        </td>
+                                        <td className="px-4 py-3 text-right font-mono">{model.energy_kwh_per_1k_tokens.toFixed(5)}</td>
+                                        <td className="px-4 py-3 text-right font-mono">{model.co2_g_per_1k_tokens.toFixed(3)}</td>
+                                        <td className="px-4 py-3 text-right font-mono">
+                                            ${((model.cost_per_1k_input_tokens + model.cost_per_1k_output_tokens) / 2 * 1000).toFixed(2)}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </CardContent>
             </Card>
         </div>
     )

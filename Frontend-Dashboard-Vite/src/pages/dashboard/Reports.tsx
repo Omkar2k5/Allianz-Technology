@@ -154,215 +154,231 @@ export default function ReportsPage() {
 
     const handleDownload = (report: any) => {
         const printWindow = window.open('', '_blank')
-        if (printWindow) {
-            const suggestionsHtml = report.suggestions && report.suggestions.length > 0
-                ? report.suggestions.map((s: any) => `
-                    <div class="suggestion-item">
-                        <div class="suggestion-title"><strong>${s.title}</strong></div>
+        if (!printWindow) {
+            alert('Please allow popups to generate the report.')
+            return
+        }
+
+        // --- Helper for formatting Date ---
+        const reportDate = new Date().toLocaleDateString('en-US', {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+        })
+
+        // --- Recommendation HTML Generator ---
+        const suggestionsHtml = report.suggestions && report.suggestions.length > 0
+            ? report.suggestions.map((s: any) => `
+                <div class="suggestion-item">
+                    <div class="suggestion-icon">💡</div>
+                    <div class="suggestion-content">
+                        <div class="suggestion-title">${s.title}</div>
                         <div class="suggestion-details">
-                            Potential Savings: ${s.estimated_savings_co2_g?.toFixed(2)}g CO₂
+                            Implementation Difficulty: <span class="badge ${s.difficulty?.toLowerCase() || 'medium'}">${s.difficulty || 'Medium'}</span>
+                            <span style="margin: 0 10px; color: #ccc;">|</span>
+                            Potential Savings: <strong>${s.estimated_savings_co2_g?.toFixed(1)}g CO₂</strong>
                         </div>
                     </div>
-                `).join('')
-                : '<p>No specific sustainability recommendations for this period.</p>'
+                </div>
+            `).join('')
+            : '<div class="empty-state">No specific sustainability recommendations for this period. Operations are running efficiently.</div>'
 
-            // Generate Usage Trend Chart HTML (CSS Bar Chart)
-            let usageChartHtml = '<p>No usage data available.</p>';
-            if (report.usage_trend && report.usage_trend.length > 0) {
-                const maxTokens = Math.max(...report.usage_trend.map((d: any) => d.tokens)) || 1;
-                const barsHtml = report.usage_trend.slice(-15).map((d: any) => { // Last 15 days
-                    const heightPct = Math.max(5, (d.tokens / maxTokens) * 100);
-                    return `
-                        <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 5px;">
-                            <div style="width: 100%; height: ${heightPct}%; background: #3b82f6; border-radius: 4px 4px 0 0; min-height: 2px;"></div>
-                            <div style="font-size: 0.7em; color: #666; transform: rotate(-45deg); height: 20px; text-align: right; width: 100%; overflow: visible; white-space: nowrap;">${new Date(d.date).getDate()}</div>
+        // --- Usage Chart HTML Generator ---
+        let usageChartHtml = '<div class="empty-state">No usage data available for this period.</div>';
+        if (report.usage_trend && report.usage_trend.length > 0) {
+            const maxTokens = Math.max(...report.usage_trend.map((d: any) => d.tokens)) || 1;
+            const barsHtml = report.usage_trend.slice(-30).map((d: any) => { // Last 30 days max
+                const heightPct = Math.max(5, (d.tokens / maxTokens) * 100);
+                const dateObj = new Date(d.date);
+                const day = dateObj.getDate();
+                const isWeekend = dateObj.getDay() === 0 || dateObj.getDay() === 6;
+                const barColor = isWeekend ? '#93c5fd' : '#3b82f6';
+
+                return `
+                    <div class="chart-bar-container">
+                        <div class="chart-bar" style="height: ${heightPct}%; background: ${barColor};">
+                            <span class="tooltip">${formatNumber(d.tokens)}</span>
                         </div>
-                    `;
-                }).join('');
+                        <div class="chart-label">${day}</div>
+                    </div>
+                `;
+            }).join('');
 
-                usageChartHtml = `
-                    <div style="height: 150px; display: flex; align-items: flex-end; gap: 4px; padding-bottom: 30px; border-bottom: 1px solid #ddd;">
+            usageChartHtml = `
+                <div class="chart-wrapper">
+                    <div class="chart-y-axis">
+                        <span>${formatNumber(maxTokens)}</span>
+                        <span>${formatNumber(maxTokens / 2)}</span>
+                        <span>0</span>
+                    </div>
+                    <div class="chart-area">
                         ${barsHtml}
                     </div>
-                    <div style="text-align: center; font-size: 0.8em; color: #666; margin-top: 5px;">Token Usage (Last 15 Days)</div>
-                `;
-            }
-
-            // Generate Model Distribution Table
-            let modelTableHtml = '<p>No model data available.</p>';
-            if (report.model_dist && report.model_dist.length > 0) {
-                const rowsHtml = report.model_dist.map((m: any) => `
-                    <tr>
-                        <td style="padding: 8px; border-bottom: 1px solid #eee;">${m.model}</td>
-                        <td style="padding: 8px; border-bottom: 1px solid #eee; text-align: right;">${formatNumber(m.calls)}</td>
-                        <td style="padding: 8px; border-bottom: 1px solid #eee; text-align: right;">${formatNumber(m.tokens)}</td>
-                         <td style="padding: 8px; border-bottom: 1px solid #eee; text-align: right;">${m.avg_latency.toFixed(0)} ms</td>
-                    </tr>
-                `).join('');
-
-                modelTableHtml = `
-                    <table style="width: 100%; border-collapse: collapse; font-size: 0.9em;">
-                        <thead>
-                            <tr style="background: #f8f9fa;">
-                                <th style="padding: 8px; text-align: left; border-bottom: 2px solid #ddd;">Model</th>
-                                <th style="padding: 8px; text-align: right; border-bottom: 2px solid #ddd;">Calls</th>
-                                <th style="padding: 8px; text-align: right; border-bottom: 2px solid #ddd;">Tokens</th>
-                                <th style="padding: 8px; text-align: right; border-bottom: 2px solid #ddd;">Avg Latency</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${rowsHtml}
-                        </tbody>
-                    </table>
-                `;
-            }
-
-            printWindow.document.write(`
-                <html>
-                    <head>
-                        <title>${report.title}</title>
-                        <style>
-                            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 40px; color: #333; line-height: 1.6; }
-                            h1 { color: #1a1a1a; border-bottom: 2px solid #2563eb; padding-bottom: 15px; margin-bottom: 20px; }
-                            h2 { color: #2c2c2c; margin-top: 30px; border-bottom: 1px solid #eee; padding-bottom: 10px; }
-                            .meta { color: #666; margin-bottom: 40px; background: #f8f9fa; padding: 15px; border-radius: 8px; }
-                            .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin-top: 20px; }
-                            .card { border: 1px solid #e5e7eb; padding: 25px; border-radius: 10px; background: #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-                            .full-width { grid-column: span 2; }
-                            .label { font-size: 0.85em; text-transform: uppercase; letter-spacing: 0.5px; color: #6b7280; margin-bottom: 5px; }
-                            .value { font-size: 1.8em; font-weight: 600; color: #111827; }
-                            .suggestions { margin-top: 20px; }
-                            .suggestion-item { background: #f0fdf4; border: 1px solid #bbf7d0; padding: 15px; border-radius: 8px; margin-bottom: 10px; }
-                            .suggestion-title { color: #166534; margin-bottom: 5px; }
-                            .suggestion-details { font-size: 0.9em; color: #15803d; }
-                            .footer { margin-top: 60px; font-size: 0.85em; color: #9ca3af; text-align: center; border-top: 1px solid #f3f4f6; padding-top: 20px; }
-                            
-                            /* Visual Charts */
-                            .chart-container { margin-top: 20px; }
-                            .bar-chart { display: flex; align-items: center; margin-bottom: 10px; }
-                            .bar-label { width: 150px; font-size: 0.9em; color: #444; }
-                            .bar-track { flex-grow: 1; background: #eee; height: 20px; border-radius: 10px; overflow: hidden; }
-                            .bar-fill { height: 100%; background: #3b82f6; width: 0%; transition: width 0.5s; }
-                            .bar-value { margin-left: 10px; font-size: 0.9em; width: 50px; font-weight: bold; }
-                            
-                            .pie-chart-simple { 
-                                width: 100px; height: 100px; border-radius: 50%; 
-                                background: conic-gradient(#3b82f6 0% 70%, #eee 70% 100%); 
-                                margin: 0 auto 10px; 
-                            }
-
-                            @media print {
-                                body { padding: 20px; }
-                                .card { break-inside: avoid; }
-                                .bar-fill { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-                            }
-                        </style>
-                    </head>
-                    <body>
-                        <h1>${report.title}</h1>
-                        <div class="meta">
-                            <p><strong>Generated on:</strong> ${report.date}</p>
-                            <p><strong>Report Type:</strong> ${report.type}</p>
-                            <p><strong>Format:</strong> PDF / Print</p>
-                        </div>
-                        
-                        <h2>Operational Metrics</h2>
-                        <div class="grid">
-                            <div class="card">
-                                <div class="label">Total AI Calls</div>
-                                <div class="value">${report.highlights.calls}</div>
-                                <div class="chart-container">
-                                    <div class="bar-chart">
-                                        <div class="bar-track"><div class="bar-fill" style="width: 85%; background: #2563eb;"></div></div>
-                                    </div>
-                                    <div style="font-size: 0.8em; color: #666; margin-top: 5px;">Vs. Previous Period</div>
-                                </div>
-                            </div>
-                            <div class="card">
-                                <div class="label">Total Energy Consumption</div>
-                                <div class="value">${report.highlights.energy}</div>
-                                 <div class="chart-container">
-                                    <div class="bar-chart">
-                                        <div class="bar-track"><div class="bar-fill" style="width: 65%; background: #f59e0b;"></div></div>
-                                    </div>
-                                     <div style="font-size: 0.8em; color: #666; margin-top: 5px;">Efficiency Rating: Good</div>
-                                </div>
-                            </div>
-                            <div class="card">
-                                <div class="label">Avg. Latency</div>
-                                <div class="value">${report.highlights.latency}</div>
-                            </div>
-                            <div class="card">
-                                <div class="label">Carbon Intensity</div>
-                                <div class="value">${report.highlights.intensity}</div>
-                            </div>
-                        </div>
-                        
-                        <!-- NEW SECTION: Usage Trends -->
-                        <h2>Usage & Distribution</h2>
-                        <div class="grid">
-                            <div class="card full-width">
-                                <div class="label">Token Usage Over Time (Last 15 Days)</div>
-                                ${usageChartHtml}
-                            </div>
-                            <div class="card full-width">
-                                <div class="label">Model Distribution</div>
-                                <div style="margin-top: 15px;">
-                                    ${modelTableHtml}
-                                </div>
-                            </div>
-                        </div>
-
-                        <h2>Environmental Impact</h2>
-                        <div class="grid">
-                             <div class="card" style="border-left: 5px solid #ef4444;">
-                                <div class="label">Total CO₂ Emissions</div>
-                                <div class="value">${report.highlights.emissions}</div>
-                                <div class="chart-container">
-                                     <div class="bar-label" style="width: 100%; margin-bottom: 5px;">Emissions Breakdown</div>
-                                     <div class="bar-chart">
-                                        <div class="bar-label" style="width: 80px;">Scope 1</div>
-                                        <div class="bar-track"><div class="bar-fill" style="width: 20%; background: #ef4444;"></div></div>
-                                        <div class="bar-value">20%</div>
-                                    </div>
-                                    <div class="bar-chart">
-                                        <div class="bar-label" style="width: 80px;">Scope 2</div>
-                                        <div class="bar-track"><div class="bar-fill" style="width: 45%; background: #ef4444;"></div></div>
-                                        <div class="bar-value">45%</div>
-                                    </div>
-                                    <div class="bar-chart">
-                                        <div class="bar-label" style="width: 80px;">Scope 3</div>
-                                        <div class="bar-track"><div class="bar-fill" style="width: 35%; background: #ef4444;"></div></div>
-                                        <div class="bar-value">35%</div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="card">
-                                <div class="label">Sustainability Score</div>
-                                <div class="value">88/100</div>
-                                <div style="display: flex; align-items: center; margin-top: 15px;">
-                                    <div class="pie-chart-simple" style="width: 60px; height: 60px; margin: 0 15px 0 0;"></div>
-                                    <div style="font-size: 0.9em; color: #666;">Top 15% of industry peers</div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <h2>ESG Recommendations</h2>
-                        <div class="suggestions">
-                            ${suggestionsHtml}
-                        </div>
-
-                        <div class="footer">
-                            Generated by EcoCompute Analytics Dashboard • Confidenital
-                        </div>
-                        <script>
-                            window.onload = function() { setTimeout(function() { window.print(); }, 500); }
-                        </script>
-                    </body>
-                </html>
-            `)
-            printWindow.document.close()
+                </div>
+                <div class="chart-legend">Daily Token Usage (Last 30 Days) • <span style="color:#93c5fd">■</span> Weekend • <span style="color:#3b82f6">■</span> Weekday</div>
+            `;
         }
+
+        // --- Model Distribution Generator ---
+        let modelTableHtml = '<div class="empty-state">No model data available.</div>';
+        if (report.model_dist && report.model_dist.length > 0) {
+            // Sort by tokens desc
+            const sortedModels = [...report.model_dist].sort((a, b) => b.tokens - a.tokens);
+
+            const rowsHtml = sortedModels.map((m: any) => `
+                <tr>
+                    <td>
+                        <div style="font-weight: 600;">${m.model}</div>
+                    </td>
+                    <td class="text-right">${formatNumber(m.calls)}</td>
+                    <td class="text-right">${formatNumber(m.tokens)}</td>
+                    <td class="text-right">${m.avg_latency.toFixed(0)} ms</td>
+                    <td class="text-right">${m.energy_wh?.toFixed(2) || '0.00'} Wh</td>
+                    <td class="text-right">${m.co2_g?.toFixed(2) || '0.00'} g</td>
+                </tr>
+            `).join('');
+
+            modelTableHtml = `
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Model Name</th>
+                            <th class="text-right">Calls</th>
+                            <th class="text-right">Total Tokens</th>
+                            <th class="text-right">Avg Latency</th>
+                            <th class="text-right">Energy</th>
+                            <th class="text-right">CO₂ Emission</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rowsHtml}
+                    </tbody>
+                </table>
+            `;
+        }
+
+        printWindow.document.write(`
+            <!DOCTYPE html>
+            <html>
+                <head>
+                    <title>${report.title}</title>
+                    <style>
+                        @page { size: A4; margin: 20mm; }
+                        body { font-family: 'Inter', system-ui, -apple-system, sans-serif; color: #1e293b; line-height: 1.5; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                        
+                        /* Header */
+                        .header { border-bottom: 2px solid #2563eb; padding-bottom: 20px; margin-bottom: 30px; display: flex; justify-content: space-between; align-items: flex-end; }
+                        .logo { font-size: 24px; font-weight: 800; color: #2563eb; letter-spacing: -1px; }
+                        .report-title { font-size: 32px; font-weight: 700; margin: 10px 0 0 0; color: #0f172a; }
+                        .report-meta { text-align: right; color: #64748b; font-size: 0.9em; }
+
+                        /* Typography */
+                        h1 { font-size: 24px; color: #0f172a; margin-bottom: 15px; }
+                        h2 { font-size: 18px; color: #334155; margin: 30px 0 15px 0; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
+                        
+                        /* Metrics Grid */
+                        .metrics-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 30px; }
+                        .metric-card { background: #f8fafc; border: 1px solid #e2e8f0; padding: 15px; border-radius: 8px; }
+                        .metric-label { font-size: 0.75em; text-transform: uppercase; color: #64748b; font-weight: 600; margin-bottom: 5px; }
+                        .metric-value { font-size: 1.5em; font-weight: 700; color: #0f172a; }
+                        .metric-sub { font-size: 0.8em; color: #16a34a; margin-top: 2px; }
+
+                        /* Charts */
+                        .section-card { border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+                        .chart-wrapper { display: flex; height: 180px; align-items: flex-end; gap: 10px; margin-top: 10px; }
+                        .chart-y-axis { display: flex; flex-direction: column; justify-content: space-between; height: 100%; font-size: 0.7em; color: #94a3b8; padding-right: 10px; border-right: 1px solid #e2e8f0; }
+                        .chart-area { display: flex; flex: 1; align-items: flex-end; justify-content: space-between; height: 100%; }
+                        .chart-bar-container { display: flex; flex-direction: column; align-items: center; width: 100%; }
+                        .chart-bar { width: 60%; border-radius: 4px 4px 0 0; min-height: 2px; position: relative; }
+                        .chart-label { font-size: 0.7em; color: #64748b; margin-top: 4px; }
+                        .chart-legend { text-align: center; font-size: 0.8em; color: #64748b; margin-top: 10px; }
+
+                        /* Tables */
+                        .data-table { width: 100%; border-collapse: collapse; font-size: 0.9em; }
+                        .data-table th { text-align: left; padding: 12px 8px; border-bottom: 2px solid #e2e8f0; color: #64748b; font-weight: 600; text-transform: uppercase; font-size: 0.75em; }
+                        .data-table td { padding: 12px 8px; border-bottom: 1px solid #f1f5f9; color: #334155; }
+                        .data-table tr:last-child td { border-bottom: none; }
+                        .text-right { text-align: right; }
+
+                        /* Recommendations */
+                        .suggestion-item { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 15px; margin-bottom: 10px; display: flex; gap: 15px; }
+                        .suggestion-icon { font-size: 24px; }
+                        .suggestion-title { font-weight: 600; color: #166534; margin-bottom: 4px; }
+                        .suggestion-details { font-size: 0.85em; color: #15803d; }
+                        .badge { display: inline-block; padding: 2px 8px; border-radius: 99px; font-size: 0.8em; font-weight: 600; text-transform: uppercase; }
+                        .badge.easy { background: #dcfce7; color: #166534; }
+                        .badge.medium { background: #fef9c3; color: #854d0e; }
+                        .badge.hard { background: #fee2e2; color: #991b1b; }
+
+                        .empty-state { padding: 30px; text-align: center; color: #94a3b8; font-style: italic; background: #f8fafc; border-radius: 8px; border: 1px dashed #cbd5e1; }
+
+                        /* Footer */
+                        .footer { margin-top: 50px; padding-top: 20px; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; font-size: 0.8em; color: #94a3b8; }
+                    </style>
+                </head>
+                <body>
+                    <div class="header">
+                        <div>
+                            <div class="logo">EcoCompute</div>
+                            <h1 class="report-title">${report.title}</h1>
+                        </div>
+                        <div class="report-meta">
+                            Generated on: ${reportDate}<br>
+                            Period: ${report.type === 'Custom Report' ? 'Custom Range' : 'Standard Period'}<br>
+                            Report ID: #${report.id.toString().slice(-6)}
+                        </div>
+                    </div>
+
+                    <div class="metrics-grid">
+                        <div class="metric-card">
+                            <div class="metric-label">Total AI Calls</div>
+                            <div class="metric-value">${report.highlights.calls}</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-label">Total Energy</div>
+                            <div class="metric-value">${report.highlights.energy}</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-label">CO₂ Emissions</div>
+                            <div class="metric-value" style="color: #ef4444;">${report.highlights.emissions}</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-label">Avg Latency</div>
+                            <div class="metric-value">${report.highlights.latency}</div>
+                        </div>
+                    </div>
+
+                    <h2>📈 Operational Analysis</h2>
+                    <div class="section-card">
+                        <h3 style="margin: 0 0 15px 0; font-size: 16px;">Daily Token Usage Trend</h3>
+                        ${usageChartHtml}
+                    </div>
+
+                    <h2>📊 Model Distribution</h2>
+                    <div class="section-card">
+                        ${modelTableHtml}
+                    </div>
+
+                    <h2>🌱 Sustainability & Optimization</h2>
+                    <div style="margin-bottom: 10px;">Recommended Actions:</div>
+                    ${suggestionsHtml}
+
+                    <div class="footer">
+                        <div>Confidential & Proprietary • Internal Use Only</div>
+                        <div>Powered by EcoCompute Analytics Engine</div>
+                    </div>
+
+                    <script>
+                        window.onload = function() { 
+                            // Auto-print after slight delay to ensure rendering
+                            setTimeout(function() { window.print(); }, 800); 
+                        }
+                    </script>
+                </body>
+            </html>
+        `)
+        printWindow.document.close()
     }
 
     return (
