@@ -2,9 +2,13 @@
 import psycopg2
 import os
 from dotenv import load_dotenv
+import pathlib
 
-# Load environment variables
-load_dotenv()
+# Load environment variables from root directory
+root_dir = pathlib.Path(__file__).parent.parent.parent
+env_path = root_dir / '.env'
+print(f"Loading .env from: {env_path}")
+load_dotenv(dotenv_path=env_path)
 
 # Get database URL from environment
 DATABASE_URL = os.getenv('DATABASE_URL')
