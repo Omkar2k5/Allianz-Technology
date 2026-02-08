@@ -10,7 +10,7 @@ import uuid
 
 from app.database.connection import get_db
 from app.database.models import User, RefreshToken
-from app.models.auth_schemas import (
+from app.models import (
     UserRegister,
     UserLogin,
     TokenRefresh,

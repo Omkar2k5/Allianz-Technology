@@ -7,7 +7,7 @@ import uuid
 from app.database.connection import get_db
 from app.database.models import GenAIRequest, User
 from app.auth.jwt import get_current_user
-from app.models.metrics_schemas import TelemetryBatch, MetricsResponse
+from app.models import TelemetryBatch, MetricsResponse
 
 router = APIRouter()
 

@@ -10,7 +10,7 @@ import logging
 
 from app.database.connection import get_db
 from app.database.models import GenAIRequest, User
-from app.models.agent_schemas import AIRequestLog
+from app.models import AIRequestLog
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
