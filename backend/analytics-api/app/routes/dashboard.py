@@ -116,6 +116,7 @@ async def get_usage_metrics(
         func.count(models.GenAIRequest.id).label('calls'),
         func.sum(models.GenAIRequest.tokens_total).label('tokens'),
         func.sum(models.GenAIRequest.tokens_input).label('tokens_input'),
+        func.sum(models.GenAIRequest.tokens_output).label('tokens_output'),
         func.sum(models.GenAIRequest.energy_wh).label('energy_wh'),
         func.sum(models.GenAIRequest.co2_g).label('co2_g'),
         func.avg(models.GenAIRequest.latency_ms).label('avg_latency')
