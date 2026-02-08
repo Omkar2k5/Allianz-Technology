@@ -186,7 +186,7 @@ $RECYCLE.BIN/
 
 # Dataset and model files
 dataset/
-models/
+# models/  <-- Commented out to allow app/models/
 *.h5
 *.pkl
 *.joblib
