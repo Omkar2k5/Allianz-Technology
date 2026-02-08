@@ -13,9 +13,8 @@ import {
     Tooltip,
     Legend,
     ResponsiveContainer,
-    ScatterChart,
-    Scatter,
-    ZAxis
+    ComposedChart,
+    Line
 } from 'recharts'
 
 interface ModelData {
@@ -151,31 +150,36 @@ export default function Recommendations() {
                     <div className="mb-6">
                         <h3 className="text-lg font-semibold text-foreground">Efficiency Landscape</h3>
                         <p className="text-sm text-muted-foreground">
-                            Energy vs Latency (Bubble size = CO₂ impact)
+                            Energy consumption and latency by model
                         </p>
                     </div>
                     <ResponsiveContainer width="100%" height={300}>
-                        <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
+                        <ComposedChart
+                            data={models.slice(0, 6)}
+                            margin={{ top: 20, right: 30, bottom: 60, left: 20 }}
+                        >
                             <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
                             <XAxis
-                                type="number"
-                                dataKey="avg_latency"
-                                name="Latency"
-                                unit="ms"
+                                dataKey="model"
                                 stroke="var(--color-muted-foreground)"
-                                label={{ value: 'Latency (ms)', position: 'insideBottomRight', offset: -10 }}
+                                angle={-45}
+                                textAnchor="end"
+                                height={80}
+                                interval={0}
+                                tick={{ fontSize: 11 }}
                             />
                             <YAxis
-                                type="number"
-                                dataKey="energy_wh"
-                                name="Energy"
-                                unit="Wh"
+                                yAxisId="left"
                                 stroke="var(--color-muted-foreground)"
-                                label={{ value: 'Total Energy (Wh)', angle: -90, position: 'insideLeft' }}
+                                label={{ value: 'Energy (Wh)', angle: -90, position: 'insideLeft' }}
                             />
-                            <ZAxis type="number" dataKey="co2_g" range={[50, 400]} name="CO₂ (g)" />
+                            <YAxis
+                                yAxisId="right"
+                                orientation="right"
+                                stroke="var(--color-muted-foreground)"
+                                label={{ value: 'Latency (ms)', angle: 90, position: 'insideRight' }}
+                            />
                             <Tooltip
-                                cursor={{ strokeDasharray: '3 3' }}
                                 contentStyle={{
                                     backgroundColor: 'var(--color-card)',
                                     border: '1px solid var(--color-border)',
@@ -183,8 +187,9 @@ export default function Recommendations() {
                                 }}
                             />
                             <Legend />
-                            <Scatter name="Models" data={models} fill="var(--color-primary)" />
-                        </ScatterChart>
+                            <Bar yAxisId="left" dataKey="energy_wh" name="Energy (Wh)" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                            <Line yAxisId="right" type="monotone" dataKey="avg_latency" name="Latency (ms)" stroke="#ef4444" strokeWidth={2} dot={{ r: 4 }} />
+                        </ComposedChart>
                     </ResponsiveContainer>
                 </Card>
 

@@ -10,7 +10,7 @@ import Emissions from '@/pages/dashboard/Emissions'
 import RFE from '@/pages/dashboard/RFE'
 import Recommendations from '@/pages/dashboard/Recommendations'
 
-import ModelsPage from '@/pages/dashboard/Models'
+
 
 import ReportsPage from '@/pages/dashboard/Reports'
 
@@ -29,7 +29,6 @@ function App() {
                         <Route path="energy" element={<Energy />} />
                         <Route path="usage" element={<Usage />} />
                         <Route path="emissions" element={<Emissions />} />
-                        <Route path="models" element={<ModelsPage />} />
                         <Route path="reports" element={<ReportsPage />} />
                         <Route path="rfe" element={<RFE />} />
                         <Route path="recommendations" element={<Recommendations />} />

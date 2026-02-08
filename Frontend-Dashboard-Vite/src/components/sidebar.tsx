@@ -25,7 +25,7 @@ const navItems = [
   { href: '/usage', label: 'Usage Tracking', icon: BarChart3 },
   { href: '/energy', label: 'Energy Consumption', icon: Zap },
   { href: '/emissions', label: 'Carbon Emissions', icon: Wind },
-  { href: '/models', label: 'Model Efficiency', icon: Cpu },
+
   { href: '/recommendations', label: 'Recommendations', icon: Lightbulb },
   { href: '/rfe', label: 'Research for Estimation', icon: BookOpen },
   { href: '/reports', label: 'Reports & ESG', icon: FileText },
