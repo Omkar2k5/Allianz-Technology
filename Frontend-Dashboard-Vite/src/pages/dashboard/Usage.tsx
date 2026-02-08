@@ -14,6 +14,8 @@ import {
 } from 'recharts'
 import { Download } from 'lucide-react'
 
+import { API_URL } from '@/config'
+
 export default function Usage() {
     const [loading, setLoading] = useState(true)
     const [dailyUsage, setDailyUsage] = useState<any[]>([])
@@ -31,8 +33,8 @@ export default function Usage() {
                 }
 
                 const [overviewRes, usageRes] = await Promise.all([
-                    fetch('http://127.0.0.1:8000/api/v1/dashboard/overview?days=30', { headers }),
-                    fetch('http://127.0.0.1:8000/api/v1/dashboard/usage?days=30', { headers })
+                    fetch(`${API_URL}/api/v1/dashboard/overview?days=30`, { headers }),
+                    fetch(`${API_URL}/api/v1/dashboard/usage?days=30`, { headers })
                 ])
 
                 const overviewData = await overviewRes.json()

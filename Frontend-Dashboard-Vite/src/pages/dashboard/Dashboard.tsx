@@ -20,6 +20,8 @@ import { TrendingUp, AlertCircle, Zap, Wind, Activity, ArrowUpRight } from 'luci
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { AnimatedNumber } from '@/components/AnimatedNumber'
 
+import { API_URL } from '@/config'
+
 export default function Dashboard() {
     const [loading, setLoading] = useState(true)
     const [overview, setOverview] = useState<any>(null)
@@ -36,8 +38,8 @@ export default function Dashboard() {
                 }
 
                 const [overviewRes, usageRes] = await Promise.all([
-                    fetch('http://127.0.0.1:8000/api/v1/dashboard/overview?days=7', { headers }),
-                    fetch('http://127.0.0.1:8000/api/v1/dashboard/usage?days=7', { headers })
+                    fetch(`${API_URL}/api/v1/dashboard/overview?days=7`, { headers }),
+                    fetch(`${API_URL}/api/v1/dashboard/usage?days=7`, { headers })
                 ])
 
                 const overviewData = await overviewRes.json()

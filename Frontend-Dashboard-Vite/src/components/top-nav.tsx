@@ -10,6 +10,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { API_URL } from '@/config'
 
 interface TopNavProps {
   onMenuClick: () => void
@@ -37,7 +38,7 @@ export function TopNav({ onMenuClick }: TopNavProps) {
 
     // Simply decode token or use stored user info if available
     // For now, let's try to fetch user info
-    fetch('http://127.0.0.1:8000/api/v1/auth/me', {
+    fetch(`${API_URL}/api/v1/auth/me`, {
       headers: { Authorization: `Bearer ${token}` }
     })
       .then(res => {
@@ -57,7 +58,7 @@ export function TopNav({ onMenuClick }: TopNavProps) {
       const refreshToken = localStorage.getItem('refresh_token')
 
       if (token && refreshToken) {
-        await fetch('http://127.0.0.1:8000/api/v1/auth/logout', {
+        await fetch(`${API_URL}/api/v1/auth/logout`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
