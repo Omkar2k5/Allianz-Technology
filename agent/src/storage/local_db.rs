@@ -5,6 +5,7 @@ use tokio_postgres::{Client, NoTls, Error};
 use tracing::{info, debug, error};
 use tokio::sync::Mutex;
 use serde_json::json;
+use anyhow::{Result, Context};
 
 pub struct LocalCache {
     conn: Mutex<Client>,
@@ -15,8 +16,15 @@ unsafe impl Send for LocalCache {}
 unsafe impl Sync for LocalCache {}
 
 impl LocalCache {
-    pub async fn new(db_url: &str) -> Result<Self, Error> {
-        let (client, connection) = tokio_postgres::connect(db_url, NoTls).await?;
+    pub async fn new(db_url: &str) -> Result<Self> {
+        info!("🔌 Connecting to database...");
+        
+        let (client, connection) = tokio::time::timeout(
+            std::time::Duration::from_secs(10),
+            tokio_postgres::connect(db_url, NoTls)
+        ).await
+        .context("Database connection timed out after 10 seconds. Check your network/firewall or if the DB is asleep.")?
+        .context("Failed to connect to database")?;
         
         // Spawn connection handler
         tokio::spawn(async move {
