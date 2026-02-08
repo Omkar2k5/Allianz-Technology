@@ -48,6 +48,8 @@ class ModelDistribution(BaseModel):
     tokens: int
     tokens_input: Optional[int] = 0
     tokens_output: Optional[int] = 0
+    energy_wh: Optional[float] = 0
+    co2_g: Optional[float] = 0
     avg_latency: Optional[float] = 0
 
 

@@ -51,7 +51,6 @@ interface ModelUI {
 export default function ModelsPage() {
     const [models, setModels] = useState<ModelUI[]>([])
     const [loading, setLoading] = useState(true)
-    const [selectedModel, setSelectedModel] = useState<ModelUI | null>(null)
 
     useEffect(() => {
         fetchModels()
@@ -110,9 +109,6 @@ export default function ModelsPage() {
             })
 
             setModels(processed)
-            if (processed.length > 0) {
-                setSelectedModel(processed[0])
-            }
 
         } catch (err) {
             console.error('Error loading models:', err)
@@ -127,9 +123,8 @@ export default function ModelsPage() {
         .slice(0, 5)
         .map(m => ({
             name: m.name,
-            efficiency: m.efficiency,
-            cost: m.cost, // Scaled for visibility
-            emissions: m.co2per * 10 // scale for visibility
+            energy: m.kwh1k,
+            emissions: m.co2per
         }))
 
     if (loading) {
@@ -194,7 +189,7 @@ export default function ModelsPage() {
             <Card className="p-6 border border-border/50">
                 <div className="mb-6">
                     <h3 className="text-lg font-semibold text-foreground">Top 5 Efficient Models</h3>
-                    <p className="text-sm text-muted-foreground">Efficiency vs Cost vs Emissions</p>
+                    <p className="text-sm text-muted-foreground">Emissions vs Energy Consumption (per 1k tokens)</p>
                 </div>
                 <ResponsiveContainer width="100%" height={300}>
                     <BarChart data={chartData}>
@@ -209,9 +204,8 @@ export default function ModelsPage() {
                             }}
                         />
                         <Legend />
-                        <Bar dataKey="efficiency" fill="var(--color-primary)" name="Efficiency Score" />
-                        <Bar dataKey="cost" fill="var(--color-accent)" name="Rel. Cost (per 1M)" />
-                        <Bar dataKey="emissions" fill="var(--color-chart-3)" name="CO₂ (g/10k)" />
+                        <Bar dataKey="energy" fill="var(--color-primary)" name="Energy (kWh)" />
+                        <Bar dataKey="emissions" fill="var(--color-destructive)" name="Emissions (g)" />
                     </BarChart>
                 </ResponsiveContainer>
             </Card>
@@ -230,7 +224,6 @@ export default function ModelsPage() {
                                 <th className="text-left py-3 px-4 font-semibold text-muted-foreground">kWh/1k</th>
                                 <th className="text-left py-3 px-4 font-semibold text-muted-foreground">CO₂ (g)/1k</th>
                                 <th className="text-left py-3 px-4 font-semibold text-muted-foreground">Score</th>
-                                <th className="text-left py-3 px-4 font-semibold text-muted-foreground">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -240,8 +233,8 @@ export default function ModelsPage() {
                                     <td className="py-4 px-4 text-muted-foreground text-xs">{model.provider}</td>
                                     <td className="py-4 px-4 text-foreground">{model.parameters}</td>
                                     <td className="py-4 px-4 text-foreground">{model.tokensPerSec}</td>
-                                    <td className="py-4 px-4 text-foreground">{model.kwh1k.toFixed(4)}</td>
-                                    <td className="py-4 px-4 text-foreground">{model.co2per.toFixed(2)}</td>
+                                    <td className="py-4 px-4 text-foreground">{model.kwh1k.toFixed(6)}</td>
+                                    <td className="py-4 px-4 text-foreground">{model.co2per.toFixed(4)}</td>
                                     <td className="py-4 px-4">
                                         <Badge
                                             className="text-xs font-semibold"
@@ -254,84 +247,12 @@ export default function ModelsPage() {
                                             {model.score}
                                         </Badge>
                                     </td>
-                                    <td className="py-4 px-4">
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            className="text-xs bg-transparent"
-                                            onClick={() => setSelectedModel(model)}
-                                        >
-                                            View
-                                        </Button>
-                                    </td>
                                 </tr>
                             ))}
                         </tbody>
                     </table>
                 </div>
             </Card>
-
-            {/* Selected Model Details */}
-            {selectedModel && (
-                <Card className="p-6 border border-border/50">
-                    <div className="flex items-start justify-between mb-6">
-                        <div>
-                            <h3 className="text-lg font-semibold text-foreground">{selectedModel.name}</h3>
-                            <p className="text-sm text-muted-foreground">{selectedModel.provider}</p>
-                        </div>
-                        <Badge
-                            className="text-sm font-bold"
-                            style={{
-                                backgroundColor: selectedModel.color + '20',
-                                color: selectedModel.color,
-                                border: `1px solid ${selectedModel.color}`,
-                            }}
-                        >
-                            Quality Score: {selectedModel.quality_score}
-                        </Badge>
-                    </div>
-
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        <div>
-                            <p className="text-xs text-muted-foreground font-medium mb-1">Parameters</p>
-                            <p className="text-lg font-bold text-foreground">{selectedModel.parameters}</p>
-                        </div>
-                        <div>
-                            <p className="text-xs text-muted-foreground font-medium mb-1">Est. Speed</p>
-                            <p className="text-lg font-bold text-foreground">{selectedModel.tokensPerSec} t/s</p>
-                        </div>
-                        <div>
-                            <p className="text-xs text-muted-foreground font-medium mb-1">Energy (kWh/1K)</p>
-                            <p className="text-lg font-bold text-foreground">{selectedModel.kwh1k.toFixed(4)}</p>
-                        </div>
-                        <div>
-                            <p className="text-xs text-muted-foreground font-medium mb-1">CO₂ (g/request)</p>
-                            <p className="text-lg font-bold text-foreground">{selectedModel.co2per.toFixed(2)}</p>
-                        </div>
-                    </div>
-
-                    <div className="mt-6 pt-6 border-t border-border">
-                        <h4 className="font-semibold text-foreground mb-4">Insights</h4>
-                        <ul className="space-y-2 text-sm text-muted-foreground">
-                            {selectedModel.efficiency > 50 ? (
-                                <li className="flex gap-2">
-                                    <ArrowUpRight className="w-4 h-4 text-green-500 flex-shrink-0 mt-0.5" />
-                                    <span>High efficiency score indicates good quality for low environmental impact.</span>
-                                </li>
-                            ) : (
-                                <li className="flex gap-2">
-                                    <ArrowUpRight className="w-4 h-4 text-yellow-500 flex-shrink-0 mt-0.5" />
-                                    <span>Consider using a smaller or more optimized model for better efficiency.</span>
-                                </li>
-                            )}
-                            <li className="flex gap-2">
-                                <Info className="w-4 h-4 text-primary flex-shrink-0 mt-0.5" />
-                                <span>Cost is approximately ${selectedModel.cost.toFixed(2)} per 1 million tokens.</span>
-                            </li>
-                        </ul>
-                    </div>
-                </Card>
-            )}
         </div>
     )
 }

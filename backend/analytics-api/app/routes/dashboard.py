@@ -116,7 +116,8 @@ async def get_usage_metrics(
         func.count(models.GenAIRequest.id).label('calls'),
         func.sum(models.GenAIRequest.tokens_total).label('tokens'),
         func.sum(models.GenAIRequest.tokens_input).label('tokens_input'),
-        func.sum(models.GenAIRequest.tokens_output).label('tokens_output'),
+        func.sum(models.GenAIRequest.energy_wh).label('energy_wh'),
+        func.sum(models.GenAIRequest.co2_g).label('co2_g'),
         func.avg(models.GenAIRequest.latency_ms).label('avg_latency')
     ).filter(
         models.GenAIRequest.user_id == current_user.id,
@@ -142,6 +143,8 @@ async def get_usage_metrics(
                 "tokens": row.tokens,
                 "tokens_input": row.tokens_input or 0,
                 "tokens_output": row.tokens_output or 0,
+                "energy_wh": float(row.energy_wh or 0),
+                "co2_g": float(row.co2_g or 0),
                 "avg_latency": float(row.avg_latency or 0)
             }
             for row in model_dist

@@ -187,18 +187,18 @@ export default function Usage() {
                                         yAxisId="left"
                                         type="monotone"
                                         dataKey="calls"
-                                        stroke="var(--color-primary)"
+                                        stroke="#22c55e"
                                         strokeWidth={2}
-                                        dot={{ fill: 'var(--color-primary)', r: 4 }}
+                                        dot={{ fill: '#22c55e', r: 4 }}
                                         name="API Calls"
                                     />
                                     <Line
                                         yAxisId="right"
                                         type="monotone"
                                         dataKey="tokens"
-                                        stroke="var(--color-accent)"
+                                        stroke="#ef4444"
                                         strokeWidth={2}
-                                        dot={{ fill: 'var(--color-accent)', r: 4 }}
+                                        dot={{ fill: '#ef4444', r: 4 }}
                                         name="Tokens"
                                     />
                                 </LineChart>
