@@ -1,0 +1,93 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "eco-compute"
+version = "0.1.0"
+description = "A provider-agnostic SDK for tracking energy usage, carbon emissions, and sustainability metrics for LLM API calls"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "Eco-Compute Contributors", email = "ecocompute@example.com"}
+]
+maintainers = [
+    {name = "Eco-Compute Contributors", email = "ecocompute@example.com"}
+]
+keywords = [
+    "llm",
+    "sustainability",
+    "carbon",
+    "energy",
+    "ai",
+    "machine-learning",
+    "esg",
+    "carbon-footprint",
+    "green-ai",
+    "responsible-ai"
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed"
+]
+requires-python = ">=3.9"
+dependencies = [
+    "requests>=2.28.0",
+    "typing-extensions>=4.0.0"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+    "mypy>=1.0.0",
+    "black>=23.0.0",
+    "isort>=5.12.0",
+    "flake8>=6.0.0"
+]
+
+[project.urls]
+Homepage = "https://github.com/eco-compute/eco-compute-sdk"
+Documentation = "https://github.com/eco-compute/eco-compute-sdk#readme"
+Repository = "https://github.com/eco-compute/eco-compute-sdk"
+Issues = "https://github.com/eco-compute/eco-compute-sdk/issues"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["eco_compute*"]
+
+[tool.setuptools.package-data]
+eco_compute = ["py.typed"]
+
+[tool.mypy]
+python_version = "3.9"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+strict_optional = true
+
+[tool.black]
+line-length = 100
+target-version = ["py39", "py310", "py311", "py312"]
+
+[tool.isort]
+profile = "black"
+line_length = 100
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]

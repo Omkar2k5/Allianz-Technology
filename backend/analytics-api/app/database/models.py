@@ -67,7 +67,7 @@ class GenAIRequest(Base):
     
     policy_applied = Column(Boolean, default=False)
     
-    meta_data = Column(JSON)
+    meta_data = Column("metadata", JSON)
     
     created_at = Column(DateTime, default=datetime.utcnow)
 
