@@ -119,7 +119,7 @@ export default function Dashboard() {
                         <div>
                             <p className="text-sm font-medium text-muted-foreground mb-1">Total Energy</p>
                             <p className="text-3xl font-bold text-foreground">
-                                <AnimatedNumber value={overview?.total_energy_wh || 0} decimals={1} suffix="Wh" />
+                                <AnimatedNumber value={overview?.total_energy_wh || 0} decimals={0} suffix="Wh" />
                             </p>
                             <p className="text-xs text-muted-foreground mt-2">↓ 2% last month</p>
                         </div>
@@ -134,7 +134,7 @@ export default function Dashboard() {
                         <div>
                             <p className="text-sm font-medium text-muted-foreground mb-1">CO₂ Emissions</p>
                             <p className="text-3xl font-bold text-foreground">
-                                <AnimatedNumber value={overview?.total_co2_g || 0} decimals={2} suffix="g" />
+                                <AnimatedNumber value={overview?.total_co2_g || 0} decimals={0} suffix="g" />
                             </p>
                             <p className="text-xs text-muted-foreground mt-2">from backend model</p>
                         </div>

@@ -55,8 +55,15 @@ export function AnimatedNumber({
         requestAnimationFrame(animate)
     }, [value, duration])
 
-    const formattedValue = decimals > 0
-        ? displayValue.toFixed(decimals)
+    let finalDecimals = decimals
+    if (decimals === 0 && value > 0 && value < 1) {
+        if (value < 0.000001) finalDecimals = 9
+        else if (value < 0.001) finalDecimals = 6
+        else finalDecimals = 4
+    }
+
+    const formattedValue = finalDecimals > 0
+        ? displayValue.toFixed(finalDecimals)
         : Math.round(displayValue).toLocaleString()
 
     return (

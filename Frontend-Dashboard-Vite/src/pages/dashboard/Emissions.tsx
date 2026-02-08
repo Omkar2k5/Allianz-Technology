@@ -84,7 +84,7 @@ export default function Emissions() {
                 <Card className="p-6 border border-border/50">
                     <p className="text-sm font-medium text-muted-foreground mb-1">Total CO₂ Emissions</p>
                     <p className="text-3xl font-bold text-foreground">
-                        <CountUp end={totalCO2Kg} decimals={2} duration={1.5} /> kg
+                        <CountUp end={totalCO2Kg} decimals={4} duration={1.5} /> kg
                     </p>
                     <p className="text-xs text-muted-foreground mt-2">Last 30 days</p>
                 </Card>
@@ -92,7 +92,7 @@ export default function Emissions() {
                 <Card className="p-6 border border-border/50">
                     <p className="text-sm font-medium text-muted-foreground mb-1">Avg. CO₂ per Request</p>
                     <p className="text-3xl font-bold text-foreground">
-                        <CountUp end={avgCO2PerRequest} decimals={3} duration={1.5} /> g
+                        <CountUp end={avgCO2PerRequest} decimals={6} duration={1.5} /> g
                     </p>
                     <p className="text-xs text-muted-foreground mt-2">Carbon per AI call</p>
                 </Card>
@@ -193,7 +193,7 @@ export default function Emissions() {
                                     <div>
                                         <p className="text-sm font-medium text-foreground">{region.region}</p>
                                         <p className="text-xs text-muted-foreground">
-                                            {region.emissions.toFixed(2)} kg CO₂ • {region.requests} requests
+                                            {region.emissions.toFixed(6)} kg CO₂ • {region.requests} requests
                                         </p>
                                     </div>
                                     <p className="text-sm font-semibold text-foreground">{region.percentage.toFixed(1)}%</p>

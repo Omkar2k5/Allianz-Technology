@@ -106,7 +106,7 @@ export default function Energy() {
                 <Card className="p-6 border border-border/50">
                     <p className="text-sm font-medium text-muted-foreground mb-1">Total Wh Consumed</p>
                     <p className="text-3xl font-bold text-foreground">
-                        <CountUp end={totalWh} decimals={2} duration={1.5} /> Wh
+                        <CountUp end={totalWh} decimals={4} duration={1.5} /> Wh
                     </p>
                     <p className="text-xs text-muted-foreground mt-2">Last 30 days</p>
                 </Card>
@@ -114,7 +114,7 @@ export default function Energy() {
                 <Card className="p-6 border border-border/50">
                     <p className="text-sm font-medium text-muted-foreground mb-1">Avg. Wh/Request</p>
                     <p className="text-3xl font-bold text-foreground">
-                        <CountUp end={avgWhPerRequest} decimals={2} duration={1.5} />
+                        <CountUp end={avgWhPerRequest} decimals={6} duration={1.5} />
                     </p>
                     <p className="text-xs text-muted-foreground mt-2">Global Average</p>
                 </Card>
@@ -122,7 +122,7 @@ export default function Energy() {
                 <Card className="p-6 border border-border/50">
                     <p className="text-sm font-medium text-muted-foreground mb-1">Avg. Wh/Model</p>
                     <p className="text-3xl font-bold text-foreground">
-                        <CountUp end={avgWhPerModel} decimals={2} duration={1.5} />
+                        <CountUp end={avgWhPerModel} decimals={6} duration={1.5} />
                     </p>
                     <p className="text-xs text-muted-foreground mt-2">Across active models</p>
                 </Card>
@@ -225,7 +225,7 @@ export default function Energy() {
                         Inference energy is calculated based on token count and model-specific energy factors.
                     </p>
                     <ul className="space-y-2 text-sm">
-                        <li className="text-foreground">• <span className="font-medium">Total Inference Wh:</span> {totalWh.toFixed(2)} Wh</li>
+                        <li className="text-foreground">• <span className="font-medium">Total Inference Wh:</span> {totalWh.toFixed(4)} Wh</li>
                         <li className="text-foreground">• <span className="font-medium">Avg. Latency/ms:</span> {overview?.avg_latency_ms || 0} ms</li>
                         <li className="text-foreground">• <span className="font-medium">Total Requests:</span> {overview?.total_calls?.toLocaleString() || 0}</li>
                     </ul>
@@ -268,8 +268,8 @@ export default function Energy() {
                                         </td>
                                         <td className="py-4 px-4 text-foreground">{row.tokens}</td>
                                         <td className="py-4 px-4 text-foreground">{row.latency_ms} ms</td>
-                                        <td className="py-4 px-4 text-foreground font-medium">{row.energy_wh.toFixed(2)} Wh</td>
-                                        <td className="py-4 px-4 text-foreground font-medium">{row.co2_g.toFixed(2)} g</td>
+                                        <td className="py-4 px-4 text-foreground font-medium">{row.energy_wh.toFixed(6)} Wh</td>
+                                        <td className="py-4 px-4 text-foreground font-medium">{row.co2_g.toFixed(6)} g</td>
                                     </tr>
                                 ))
                             ) : (
