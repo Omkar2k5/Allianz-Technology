@@ -12,6 +12,8 @@ import logging
 from app.database.connection import get_db
 from app.models.schemas import DashboardOverview, UsageMetrics, EnergyMetrics, EmissionsMetrics
 from app.database import models
+from app.auth.jwt import get_current_user
+from app.database.models import User
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -20,6 +22,7 @@ logger = logging.getLogger(__name__)
 @router.get("/overview", response_model=DashboardOverview)
 async def get_dashboard_overview(
     days: int = Query(7, ge=1, le=365, description="Number of days to analyze"),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
@@ -40,6 +43,7 @@ async def get_dashboard_overview(
     
     # Base query
     query = db.query(models.GenAIRequest).filter(
+        models.GenAIRequest.user_id == current_user.id,
         models.GenAIRequest.timestamp >= start_date,
         models.GenAIRequest.timestamp <= end_date
     )
@@ -56,6 +60,7 @@ async def get_dashboard_overview(
     # Calculate growth (compare with previous period)
     prev_start = start_date - timedelta(days=days)
     prev_query = db.query(models.GenAIRequest).filter(
+        models.GenAIRequest.user_id == current_user.id,
         models.GenAIRequest.timestamp >= prev_start,
         models.GenAIRequest.timestamp < start_date
     )
@@ -84,6 +89,7 @@ async def get_dashboard_overview(
 @router.get("/usage", response_model=UsageMetrics)
 async def get_usage_metrics(
     days: int = Query(7, ge=1, le=365),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Get usage tracking metrics"""
@@ -97,6 +103,7 @@ async def get_usage_metrics(
         func.count(models.GenAIRequest.id).label('calls'),
         func.sum(models.GenAIRequest.tokens_total).label('tokens')
     ).filter(
+        models.GenAIRequest.user_id == current_user.id,
         models.GenAIRequest.timestamp >= start_date,
         models.GenAIRequest.timestamp <= end_date
     )
@@ -112,6 +119,7 @@ async def get_usage_metrics(
         func.sum(models.GenAIRequest.tokens_output).label('tokens_output'),
         func.avg(models.GenAIRequest.latency_ms).label('avg_latency')
     ).filter(
+        models.GenAIRequest.user_id == current_user.id,
         models.GenAIRequest.timestamp >= start_date,
         models.GenAIRequest.timestamp <= end_date
     )
@@ -144,6 +152,7 @@ async def get_usage_metrics(
 @router.get("/energy", response_model=EnergyMetrics)
 async def get_energy_metrics(
     days: int = Query(30, ge=1, le=365),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Get energy consumption metrics"""
@@ -155,6 +164,7 @@ async def get_energy_metrics(
     total = db.query(
         func.sum(models.GenAIRequest.energy_wh).label('total_energy')
     ).filter(
+        models.GenAIRequest.user_id == current_user.id,
         models.GenAIRequest.timestamp >= start_date,
         models.GenAIRequest.timestamp <= end_date
     )
@@ -166,6 +176,7 @@ async def get_energy_metrics(
         models.GenAIRequest.model_name,
         func.sum(models.GenAIRequest.energy_wh).label('energy')
     ).filter(
+        models.GenAIRequest.user_id == current_user.id,
         models.GenAIRequest.timestamp >= start_date,
         models.GenAIRequest.timestamp <= end_date
     )
@@ -177,6 +188,7 @@ async def get_energy_metrics(
         func.to_char(models.GenAIRequest.timestamp, 'YYYY-MM-DD').label('date'),
         func.sum(models.GenAIRequest.energy_wh).label('energy')
     ).filter(
+        models.GenAIRequest.user_id == current_user.id,
         models.GenAIRequest.timestamp >= start_date,
         models.GenAIRequest.timestamp <= end_date
     )
@@ -185,6 +197,7 @@ async def get_energy_metrics(
     
     # Recent activity logs (for granular table)
     recent_logs = db.query(models.GenAIRequest).filter(
+        models.GenAIRequest.user_id == current_user.id,
         models.GenAIRequest.timestamp >= start_date
     )
         
@@ -225,6 +238,7 @@ async def get_energy_metrics(
 @router.get("/emissions", response_model=EmissionsMetrics)
 async def get_emissions_metrics(
     days: int = Query(30, ge=1, le=365),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Get carbon emissions metrics"""
@@ -236,6 +250,7 @@ async def get_emissions_metrics(
     total = db.query(
         func.sum(models.GenAIRequest.co2_g).label('total_co2')
     ).filter(
+        models.GenAIRequest.user_id == current_user.id,
         models.GenAIRequest.timestamp >= start_date,
         models.GenAIRequest.timestamp <= end_date
     )
@@ -248,6 +263,7 @@ async def get_emissions_metrics(
         func.sum(models.GenAIRequest.co2_g).label('co2'),
         func.count(models.GenAIRequest.id).label('requests')
     ).filter(
+        models.GenAIRequest.user_id == current_user.id,
         models.GenAIRequest.timestamp >= start_date,
         models.GenAIRequest.timestamp <= end_date
     )
@@ -260,6 +276,7 @@ async def get_emissions_metrics(
         func.to_char(models.GenAIRequest.timestamp, 'YYYY-MM').label('month'),
         func.sum(models.GenAIRequest.co2_g).label('co2')
     ).filter(
+        models.GenAIRequest.user_id == current_user.id,
         models.GenAIRequest.timestamp >= start_date,
         models.GenAIRequest.timestamp <= end_date
     )
