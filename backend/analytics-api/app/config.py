@@ -27,7 +27,11 @@ class Settings(BaseSettings):
     JWT_EXPIRATION_HOURS: int = 24
     
     # CORS
-    CORS_ORIGINS: List[str] = ["*"]
+    CORS_ORIGINS: List[str] = [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "https://allianztechnology.vercel.app"
+    ]
     
     # External Services
     PROXY_URL: str = "http://genai-proxy:8001"
