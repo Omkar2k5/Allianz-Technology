@@ -1,3 +1,10 @@
+import React, { useState } from "react"
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Card } from '@/components/ui/card'
+import { Link, useNavigate } from 'react-router-dom'
+import { Leaf } from 'lucide-react'
 import { API_URL } from '@/config'
 
 export default function SignUpPage() {
