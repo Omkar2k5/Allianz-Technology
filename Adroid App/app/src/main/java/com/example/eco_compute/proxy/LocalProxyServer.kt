@@ -17,6 +17,8 @@ import javax.net.ssl.SSLSocket
 import javax.net.ssl.TrustManager
 import javax.net.ssl.X509TrustManager
 
+import android.net.VpnService
+
 /**
  * Local SOCKS/HTTP Proxy Server
  * Runs on localhost and intercepts traffic routed through VPN
@@ -25,7 +27,9 @@ class LocalProxyServer(
     private val port: Int = 8899,
     private val aiDetector: AIDetector,
     private val userId: String,
-    private val deviceName: String
+    private val deviceName: String,
+    private val vpnService: VpnService,
+    private val context: android.content.Context
 ) {
     
     private var serverSocket: ServerSocket? = null
@@ -180,8 +184,8 @@ class LocalProxyServer(
         var totalBytes = 0L
         
         try {
-            // Connect to real server
-            val serverSocket = Socket(host, port)
+            // Connect to real server using explicit network binding
+            val serverSocket = createProtectedSocket(host, port)
             val serverInput = serverSocket.getInputStream()
             val serverOutput = serverSocket.getOutputStream()
             
@@ -204,7 +208,7 @@ class LocalProxyServer(
             serverSocket.close()
             
         } catch (e: Exception) {
-            Log.e(TAG, "Error tunneling to $host", e)
+            Log.e(TAG, "Error tunneling to $host: ${e.message}", e)
         } finally {
             val duration = System.currentTimeMillis() - startTime
             if (totalBytes > 0) {
@@ -307,7 +311,7 @@ class LocalProxyServer(
         clientOutput: OutputStream
     ) {
         try {
-            val serverSocket = Socket(host, port)
+            val serverSocket = createProtectedSocket(host, port)
             val serverInput = serverSocket.getInputStream()
             val serverOutput = serverSocket.getOutputStream()
             
@@ -330,7 +334,7 @@ class LocalProxyServer(
             serverSocket.close()
             
         } catch (e: Exception) {
-            Log.e(TAG, "Error tunneling connection", e)
+            Log.e(TAG, "Error tunneling connection to $host: ${e.message}", e)
         }
     }
     
@@ -351,6 +355,32 @@ class LocalProxyServer(
         }
     }
     
+    /**
+     * Create a socket bound to the active network (bypassing VPN)
+     */
+    private fun createProtectedSocket(host: String, port: Int): Socket {
+        val connectivityManager = context.getSystemService(android.content.Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
+        val activeNetwork = connectivityManager.activeNetwork 
+            ?: throw java.io.IOException("No active network found")
+            
+        Log.d(TAG, "Creating protected socket on network: $activeNetwork")
+        
+        // 1. Explicitly resolve DNS on the physical network
+        val ips = activeNetwork.getAllByName(host)
+        if (ips.isEmpty()) throw java.net.UnknownHostException("DNS resolution failed for $host")
+        val ipAddress = ips[0]
+        Log.d(TAG, "Resolved $host to $ipAddress via network $activeNetwork")
+        
+        // 2. Create socket using the network's factory (binds automatically)
+        val socket = activeNetwork.socketFactory.createSocket()
+        
+        // 3. Connect to IP directly
+        Log.d(TAG, "Connecting to $ipAddress:$port on network $activeNetwork...")
+        socket.connect(java.net.InetSocketAddress(ipAddress, port), 10000)
+        Log.d(TAG, "Connected to $ipAddress:$port")
+        return socket
+    }
+
     /**
      * Read a line from input stream
      */

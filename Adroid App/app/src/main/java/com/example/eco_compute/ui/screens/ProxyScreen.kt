@@ -3,6 +3,8 @@ package com.example.eco_compute.ui.screens
 import android.app.Activity
 import android.content.Intent
 import android.net.VpnService
+import android.util.Log
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
@@ -43,10 +45,13 @@ fun ProxyScreen() {
     val vpnPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
+        Log.i("ProxyScreen", "VPN permission result: ${result.resultCode}")
         if (result.resultCode == Activity.RESULT_OK) {
             // Permission granted, start the proxy
             ProxyService.start(context)
             isProxyEnabled = true
+        } else {
+            Log.w("ProxyScreen", "VPN permission denied/cancelled")
         }
     }
     
@@ -73,14 +78,17 @@ fun ProxyScreen() {
                             // Request VPN permission
                             val intent = VpnService.prepare(context)
                             if (intent != null) {
+                                Log.i("ProxyScreen", "VPN permission required, launching intent")
+                                Toast.makeText(context, "Requesting VPN permission", Toast.LENGTH_SHORT).show()
                                 vpnPermissionLauncher.launch(intent)
                             } else {
-                                // Permission already granted
+                                Log.i("ProxyScreen", "VPN permission already granted, starting service")
+                                Toast.makeText(context, "Starting Proxy Service", Toast.LENGTH_SHORT).show()
                                 ProxyService.start(context)
                                 isProxyEnabled = true
                             }
                         } else {
-                            // Stop proxy
+                            Log.i("ProxyScreen", "Stopping proxy service")
                             ProxyService.stop(context)
                             isProxyEnabled = false
                         }

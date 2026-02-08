@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.IBinder
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.example.eco_compute.R
 import com.example.eco_compute.proxy.ProxyVpnService
@@ -45,17 +46,21 @@ class ProxyService : Service() {
     
     override fun onCreate() {
         super.onCreate()
+        Log.d(TAG, "ProxyService created")
         createNotificationChannel()
     }
     
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        Log.d(TAG, "onStartCommand action: ${intent?.action}")
         return when (intent?.action) {
             ACTION_START_PROXY -> {
+                Log.i(TAG, "Starting proxy foreground service")
                 startForegroundService()
                 startVpnService()
                 START_STICKY
             }
             ACTION_STOP_PROXY -> {
+                Log.i(TAG, "Stopping proxy service")
                 stopVpnService()
                 stopSelf()
                 START_NOT_STICKY
@@ -70,7 +75,15 @@ class ProxyService : Service() {
             text = "Monitoring AI API requests"
         )
         
-        startForeground(NOTIFICATION_ID, notification)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(
+                NOTIFICATION_ID, 
+                notification, 
+                android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
+            )
+        } else {
+            startForeground(NOTIFICATION_ID, notification)
+        }
     }
     
     private fun startVpnService() {

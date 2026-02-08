@@ -62,7 +62,9 @@ class ProxyVpnService : VpnService() {
             port = PROXY_PORT,
             aiDetector = aiDetector,
             userId = "android-user",
-            deviceName = "${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}"
+            deviceName = "${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}",
+            vpnService = this,
+            context = applicationContext
         )
         
         Log.d(TAG, "ProxyVpnService created")
@@ -97,8 +99,9 @@ class ProxyVpnService : VpnService() {
             vpnInterface = Builder()
                 .setSession("EcoCompute Proxy")
                 .addAddress(VPN_ADDRESS, 32)
-                .addRoute(VPN_ROUTE, 0)
-                .addDnsServer(VPN_DNS)
+                // Only route the VPN address itself, allowing other traffic to bypass the tunnel
+                .addRoute(VPN_ADDRESS, 32)
+                //.addDisallowedApplication(packageName) // Removed to avoid conflict with explicit network binding
                 .setMtu(VPN_MTU)
                 .setBlocking(false)
                 .setHttpProxy(android.net.ProxyInfo.buildDirectProxy("127.0.0.1", PROXY_PORT))

@@ -114,6 +114,11 @@ fun DashboardScreen(
             Spacer(modifier = Modifier.height(32.dp))
             
             // Info Card
+            // Proxy Control Screen
+            ProxyScreen()
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
             Card(
                 modifier = Modifier.fillMaxWidth()
             ) {
@@ -134,29 +139,6 @@ fun DashboardScreen(
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    
-                    Spacer(modifier = Modifier.height(16.dp))
-                    
-                    Text(
-                        text = "Features coming soon:",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    
-                    Spacer(modifier = Modifier.height(8.dp))
-                    
-                    listOf(
-                        "📊 Real-time AI usage analytics",
-                        "🌍 Carbon footprint tracking",
-                        "💰 Cost monitoring",
-                        "📈 Usage trends and insights"
-                    ).forEach { feature ->
-                        Text(
-                            text = feature,
-                            style = MaterialTheme.typography.bodyMedium,
-                            modifier = Modifier.padding(vertical = 4.dp)
-                        )
-                    }
                 }
             }
             
