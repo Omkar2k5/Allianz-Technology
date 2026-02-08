@@ -19,7 +19,7 @@ class Settings(BaseSettings):
     API_LOG_LEVEL: str = "info"
     
     # Database
-    DATABASE_URL: str = "postgresql://postgres:omkar9211@localhost:5432/ecocompute"
+    DATABASE_URL: str
     
     # Authentication
     JWT_SECRET: str = "your-secret-key-change-in-production"
@@ -27,12 +27,7 @@ class Settings(BaseSettings):
     JWT_EXPIRATION_HOURS: int = 24
     
     # CORS
-    CORS_ORIGINS: List[str] = [
-        "http://localhost:3000",
-        "http://localhost:3001",
-        "http://frontend:3000",
-        "http://localhost:5173"
-    ]
+    CORS_ORIGINS: List[str] = ["*"]
     
     # External Services
     PROXY_URL: str = "http://genai-proxy:8001"
