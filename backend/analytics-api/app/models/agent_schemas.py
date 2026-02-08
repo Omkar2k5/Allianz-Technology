@@ -51,9 +51,9 @@ class AIRequestLog(BaseModel):
     endpoint: str  # /v1/chat/completions
     model: str
     
-    tokens_input: int
-    tokens_output: int
-    tokens_total: int
+    tokens_input: Optional[int] = 0
+    tokens_output: Optional[int] = 0
+    tokens_total: Optional[int] = 0
     
     energy_wh: float
     co2_g: float

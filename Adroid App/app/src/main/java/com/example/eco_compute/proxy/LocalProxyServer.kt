@@ -155,8 +155,8 @@ class LocalProxyServer(
             clientOutput.write("HTTP/1.1 200 Connection Established\r\n\r\n".toByteArray())
             clientOutput.flush()
             
-            // Now intercept the TLS traffic
-            interceptTlsTraffic(host, portStr, clientSocket, clientInput, clientOutput)
+            // Perform SNI-based logging (tunneling without decryption)
+            tunnelAndLog(host, portStr, clientSocket, clientInput, clientOutput)
         } else {
             // For non-AI traffic, just tunnel through
             tunnelConnection(host, portStr, clientInput, clientOutput)
@@ -166,124 +166,105 @@ class LocalProxyServer(
     /**
      * Intercept TLS traffic for AI APIs
      */
-    private suspend fun interceptTlsTraffic(
+    /**
+     * Tunnel connection and log metrics (SNI approach)
+     */
+    private suspend fun tunnelAndLog(
         host: String,
         port: Int,
         clientSocket: Socket,
         clientInput: InputStream,
         clientOutput: OutputStream
     ) {
+        val startTime = System.currentTimeMillis()
+        var totalBytes = 0L
+        
         try {
-            // Create a trust-all SSL context (for interception)
-            val trustAllCerts = arrayOf<TrustManager>(object : X509TrustManager {
-                override fun checkClientTrusted(chain: Array<java.security.cert.X509Certificate>, authType: String) {}
-                override fun checkServerTrusted(chain: Array<java.security.cert.X509Certificate>, authType: String) {}
-                override fun getAcceptedIssuers(): Array<java.security.cert.X509Certificate> = arrayOf()
-            })
-            
-            val sslContext = SSLContext.getInstance("TLS")
-            sslContext.init(null, trustAllCerts, java.security.SecureRandom())
-            
-            // Connect to the real server
-            val serverSocket = sslContext.socketFactory.createSocket(host, port) as SSLSocket
+            // Connect to real server
+            val serverSocket = Socket(host, port)
             val serverInput = serverSocket.getInputStream()
             val serverOutput = serverSocket.getOutputStream()
             
-            Log.d(TAG, "TLS connection established to $host:$port")
+            Log.d(TAG, "Tunnel established to $host:$port")
             
-            // Create coroutines to relay data and inspect it
+            // Relay data bidirectionally and count bytes
             val job1 = scope.launch {
-                relayAndInspect(clientInput, serverOutput, host, true) // Client → Server (requests)
+                val bytes = relayAndCount(clientInput, serverOutput)
+                totalBytes += bytes
             }
             
             val job2 = scope.launch {
-                relayAndInspect(serverInput, clientOutput, host, false) // Server → Client (responses)
+                val bytes = relayAndCount(serverInput, clientOutput)
+                totalBytes += bytes
             }
             
-            // Wait for both to complete
             job1.join()
             job2.join()
             
             serverSocket.close()
             
         } catch (e: Exception) {
-            Log.e(TAG, "Error intercepting TLS traffic", e)
+            Log.e(TAG, "Error tunneling to $host", e)
+        } finally {
+            val duration = System.currentTimeMillis() - startTime
+            if (totalBytes > 0) {
+                Log.i(TAG, "Connection closed. Duration: ${duration}ms, Bytes: $totalBytes")
+                sendToBackend(host, duration, totalBytes)
+            }
         }
     }
     
     /**
-     * Relay data between streams and inspect for AI content
+     * Relay data and count bytes
      */
-    private suspend fun relayAndInspect(
-        input: InputStream,
-        output: OutputStream,
-        host: String,
-        isRequest: Boolean
-    ) {
+    private fun relayAndCount(input: InputStream, output: OutputStream): Long {
         val buffer = ByteArray(8192)
-        val dataBuffer = mutableListOf<Byte>()
-        
+        var total = 0L
         try {
             while (true) {
                 val bytesRead = input.read(buffer)
                 if (bytesRead == -1) break
-                
-                // Forward the data
                 output.write(buffer, 0, bytesRead)
                 output.flush()
-                
-                // Collect data for inspection
-                for (i in 0 until bytesRead) {
-                    dataBuffer.add(buffer[i])
-                }
-                
-                // Try to parse if we have enough data
-                if (dataBuffer.size > 100) {
-                    val data = dataBuffer.toByteArray()
-                    val dataString = String(data, Charsets.UTF_8)
-                    
-                    if (isRequest) {
-                        // Try to parse as AI request
-                        val requestData = AIRequestParser.parseAIRequest(dataString)
-                        if (requestData != null) {
-                            Log.i(TAG, "📤 AI Request: ${requestData.model} - ${requestData.prompt.take(100)}")
-                        }
-                    } else {
-                        // Try to parse as AI response
-                        val responseData = AIResponseParser.parseAIResponse(dataString)
-                        if (responseData != null) {
-                            Log.i(TAG, "📥 AI Response: ${responseData.totalTokens} tokens")
-                            
-                            // Send to backend API
-                            sendToBackend(host, responseData)
-                        }
-                    }
-                }
+                total += bytesRead
             }
         } catch (e: Exception) {
-            // Connection closed or error
+            // Connection closed
         }
+        return total
     }
     
     /**
      * Send intercepted data to backend API
      */
-    private suspend fun sendToBackend(host: String, responseData: com.example.eco_compute.parser.AIResponseData) {
+    /**
+     * Send SNI-based log to backend
+     */
+    private suspend fun sendToBackend(
+        host: String, 
+        durationMs: Long, 
+        bytesTransferred: Long
+    ) {
         try {
             val provider = aiDetector.detectProvider(host)
-            val region = MetricsCalculator.detectRegion(provider, responseData.model)
-            val energyWh = MetricsCalculator.calculateEnergyWh(responseData.model, responseData.totalTokens, 1000)
+            // Estimate tokens based on bytes (very rough approximation: 1 token ~ 4 bytes)
+            // This is just a proxy metric since we can't see the content
+            val estimatedTokens = (bytesTransferred / 4).toInt()
+            
+            val modelName = "Encrypted (HTTPS)"
+            val region = MetricsCalculator.detectRegion(provider, modelName)
+            val energyWh = MetricsCalculator.calculateEnergyWh(modelName, estimatedTokens, durationMs)
             val co2G = MetricsCalculator.calculateCO2G(energyWh)
             
             val requestLog = AIRequestLog(
                 userId = userId,
                 provider = provider,
-                model = responseData.model,
+                model = modelName,
                 prompt = null,
-                promptTokens = responseData.promptTokens,
-                completionTokens = responseData.completionTokens,
-                totalTokens = responseData.totalTokens,
-                latencyMs = 1000,
+                promptTokens = 0,
+                completionTokens = 0,
+                totalTokens = estimatedTokens,
+                latencyMs = durationMs,
                 serverIp = host,
                 region = region,
                 energyWh = energyWh,
@@ -294,7 +275,7 @@ class LocalProxyServer(
             
             val response = ProxyApiClient.apiService.logAIRequest(requestLog)
             if (response.isSuccessful) {
-                Log.i(TAG, "✅ Sent to backend: $provider ${responseData.model} (${responseData.totalTokens} tokens)")
+                Log.i(TAG, "✅ Sent to backend: $provider ($estimatedTokens est. tokens, ${durationMs}ms)")
             } else {
                 Log.e(TAG, "❌ Failed to send to backend: ${response.code()}")
             }
