@@ -28,7 +28,25 @@ export default function Emissions() {
 
     const fetchEmissionsData = async () => {
         try {
-            const response = await fetch(`${API_URL}/api/v1/dashboard/emissions?days=30`)
+            const token = localStorage.getItem('token')
+            const headers: any = {
+                'Content-Type': 'application/json'
+            }
+            if (token) {
+                headers['Authorization'] = `Bearer ${token}`
+            }
+
+            const response = await fetch(`${API_URL}/api/v1/dashboard/emissions?days=30`, {
+                headers
+            })
+
+            if (!response.ok) {
+                if (response.status === 401) {
+                    console.error('Unauthorized: No valid token found')
+                }
+                throw new Error(`HTTP error! status: ${response.status}`)
+            }
+
             const data = await response.json()
             setEmissionsData(data)
             setLoading(false)

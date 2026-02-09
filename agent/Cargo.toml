@@ -57,6 +57,7 @@ toml = "0.8"
 # Utilities
 chrono = { version = "0.4", features = ["serde"] }
 uuid = { version = "1.6", features = ["v4", "serde"] }
+rust_decimal = { version = "1.33", features = ["db-postgres"] }
 anyhow = "1.0"
 thiserror = "1.0"
 regex = "1.10"

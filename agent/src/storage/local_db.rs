@@ -6,6 +6,8 @@ use tracing::{info, debug, error};
 use tokio::sync::Mutex;
 use serde_json::json;
 use anyhow::{Result, Context};
+use rust_decimal::Decimal;
+use rust_decimal::prelude::FromPrimitive;
 
 pub struct LocalCache {
     conn: Mutex<Client>,
@@ -137,8 +139,8 @@ impl LocalCache {
         // Generate new UUID for the record ID
         let id = uuid::Uuid::new_v4();
         
-        // Initial timestamp (use NaiveDateTime for "timestamp without time zone")
-        let timestamp = chrono::Utc::now().naive_utc();
+        // Initial timestamp (use DateTime<Utc> for "timestamp with time zone")
+        let timestamp = chrono::Utc::now();
         
         // Detect region and calculate energy/CO2
         let (region, carbon_intensity) = Self::detect_region_info(provider, model);
@@ -173,8 +175,8 @@ impl LocalCache {
                 &completion_tokens,
                 &total_tokens,
                 &(latency_ms as i32),
-                &energy_wh,
-                &co2_g,
+                &Decimal::from_f64_retain(energy_wh).unwrap_or_default(),
+                &Decimal::from_f64_retain(co2_g).unwrap_or_default(),
                 &region,
                 &computer_name,
                 &meta_data,
